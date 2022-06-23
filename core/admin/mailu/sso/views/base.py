@@ -5,6 +5,7 @@ from mailu.ui import access
 
 from flask import current_app as app
 from flask import session
+from flask import redirect
 import flask
 import flask_login
 
@@ -31,7 +32,7 @@ def login():
             app.logger.warn('SESSION 3: %s', session)
             flask_login.login_user(user)
             app.logger.warn('SESSION 4: %s', session)
-            response = flask.redirect(app.config['WEB_ADMIN'])
+            response = redirect(app.config['WEB_ADMIN'])
             response.set_cookie('rate_limit', utils.limiter.device_cookie(username), max_age=31536000, path=flask.url_for('sso.login'), secure=app.config['SESSION_COOKIE_SECURE'], httponly=True)
             flask.current_app.logger.info(f'Login succeeded for {username} from {client_ip}.')
             app.logger.warn('SESSION 5: %s', session)
@@ -69,7 +70,7 @@ def login():
         if user:
             flask.session.regenerate()
             flask_login.login_user(user)
-            response = flask.redirect(destination)
+            response = redirect(destination)
             response.set_cookie('rate_limit', utils.limiter.device_cookie(username), max_age=31536000, path=flask.url_for('sso.login'), secure=app.config['SESSION_COOKIE_SECURE'], httponly=True)
             flask.current_app.logger.info(f'Login succeeded for {username} from {client_ip}.')
             return response

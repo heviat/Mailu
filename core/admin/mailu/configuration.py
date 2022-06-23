@@ -162,7 +162,7 @@ class ConfigManager:
         self.config['RATELIMIT_STORAGE_URL'] = f'redis://{self.config["REDIS_ADDRESS"]}/2'
         self.config['QUOTA_STORAGE_URL'] = f'redis://{self.config["REDIS_ADDRESS"]}/1'
         self.config['SESSION_STORAGE_URL'] = f'redis://{self.config["REDIS_ADDRESS"]}/3'
-        self.config['SESSION_COOKIE_SAMESITE'] = 'Strict'
+        self.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
         self.config['SESSION_COOKIE_HTTPONLY'] = True
         self.config['SESSION_PERMANENT'] = True
         self.config['SESSION_TIMEOUT'] = int(self.config['SESSION_TIMEOUT'])
