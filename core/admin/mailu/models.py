@@ -20,6 +20,7 @@ import smtplib
 import idna
 import dns.resolver
 import dns.exception
+import flask_login
 
 from flask import current_app as app, session
 from sqlalchemy.ext import declarative
@@ -554,13 +555,14 @@ class User(Base, Email):
 
     @property
     def is_authenticated(self):
-        app.logger.warn('SESSION 6: %s', session)
         if 'keycloak_token' not in session:
             return self._authenticated
         else:
             token = utils.keycloak_client.check_validity(self.keycloak_token)
             if token is None:
-                session.pop('keycloak_token', None)
+                flask_login.current_user.logout()
+                flask_login.logout_user()
+                session.destroy()
                 return False
             session['keycloak_token'] = token
             return True
