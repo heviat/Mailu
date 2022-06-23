@@ -37,6 +37,7 @@ from werkzeug.datastructures import CallbackDict
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from keycloak import KeycloakOpenID
+from keycloak.exceptions import KeycloakGetError
 from oic.oic import Client
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 from oic import rndstr
@@ -150,14 +151,21 @@ class KeycloakClient:
         return self.keycloak_openid.userinfo(token['access_token'])
 
     def check_validity(self, token):
-        response = self.keycloak_openid.introspect(token['access_token'])
-        if ('active' in response and response['active'] == False) or 'active' not in response:
+        try:
+            response = self.keycloak_openid.introspect(token['access_token'])
+            if ('active' in response and response['active'] == False) or 'active' not in response:
+                return self.refresh_token(token)
+        except KeycloakGetError:
+            return self.refresh_token(token)
+        return token
+
+    def refresh_token(self, token):
+        try:
             response = self.keycloak_openid.refresh_token(token['refresh_token'])
             if 'access_token' in response:
                 return response
+        except KeycloakGetError:
             return None
-        return token
-
 
     def is_enabled(self):
         return self.enabled == True
