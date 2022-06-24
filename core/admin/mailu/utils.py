@@ -183,7 +183,8 @@ class OicClient:
         self.extension_client = None
         self.registration_response = None
 
-    def init_app(self):
+    def init_app(self, app):
+        self.app = app
         self.client = Client(client_authn_method=CLIENT_AUTHN_METHOD)
         self.client.provider_config(app.config['OIDC_PROVIDER_INFO_URL'])
         self.extension_client = ExtensionClient(client_authn_method=CLIENT_AUTHN_METHOD)
