@@ -255,7 +255,6 @@ class OicClient:
                 "token_type_hint": "access_token"
             }
             response = self.extension_client.do_token_introspection(request_args=args)
-            print(response)
             if ('active' in response and response['active'] == False) or 'active' not in response:
                 return self.refresh_token(token)
         except:
