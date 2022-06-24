@@ -605,10 +605,15 @@ class User(Base, Email):
             if 'keycloak_token' not in session:
                 try:
                     app.logger.warn(session)
-                    session['keycloak_token'] = utils.keycloak_client.get_token(self.email, password)
+                    app.logger.warn('Email %s', self.email)
+                    app.logger.warn('Password %s', password)
+                    keycloak_token = utils.keycloak_client.get_token(self.email, password)
+                    app.logger.warn('Token %s', keycloak_token)
+                    session['keycloak_token'] = keycloak_token
                 except: 
                     return self.check_password_legacy(password)
                 else:
+                    app.logger.warn('RETURN TRUE')
                     return True
             return utils.keycloak_client.introspect(self.keycloak_token)['active']
         else:
