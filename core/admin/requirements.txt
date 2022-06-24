@@ -27,4 +27,3 @@ flask-marshmallow
 marshmallow-sqlalchemy
 xmltodict
 oic
-python-keycloak
