@@ -195,7 +195,7 @@ class OicClient:
         self.extension_client.store_registration_info(client_reg)
 
     def get_redirect_url(self):
-        if not self.app.config['OIDC_ENABLED']:
+        if not self.is_enabled():
             return None
         f_session["state"] = rndstr()
         f_session["nonce"] = rndstr()
@@ -287,7 +287,7 @@ class OicClient:
         return uri
 
     def is_enabled(self):
-        return self.app.config['OIDC_ENABLED']
+        return self.app is not None and self.app.config['OIDC_ENABLED']
 
 oic_client = OicClient()
 
