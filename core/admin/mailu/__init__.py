@@ -27,8 +27,6 @@ def create_app_from_config(config):
     utils.login.user_loader(models.User.get)
     utils.proxy.init_app(app)
     utils.migrate.init_app(app, models.db)
-    if app.config["KEYCLOAK_ENABLED"]:
-        utils.keycloak_client.init_app(app)
     if app.config["OIDC_ENABLED"]:
         utils.oic_client.init_app(app)
 

@@ -39,9 +39,12 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from keycloak import KeycloakOpenID
 from keycloak.exceptions import KeycloakGetError
 from oic.oic import Client
+from oic.extension.client import Client as ExtensionClient
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 from oic import rndstr
-from oic.oic.message import AuthorizationResponse, RegistrationResponse
+from oic.oauth2.message import ROPCAccessTokenRequest, AccessTokenResponse
+from oic.oic.message import AuthorizationResponse, RegistrationResponse, EndSessionRequest
+from oic.oauth2.grant import Token
 
 
 # Login configuration
@@ -126,50 +129,50 @@ class PrefixMiddleware(object):
 
 proxy = PrefixMiddleware()
 
-class KeycloakClient:
-    "Verifies user credentials for nginx mail authentication using Keycloak service"
+# class KeycloakClient:
+#     "Verifies user credentials for nginx mail authentication using Keycloak service"
 
-    def __init__(self):
-        self.enabled = False
+#     def __init__(self):
+#         self.enabled = False
 
-    def init_app(self, app):
-        self.app = app
-        self.keycloak_openid = KeycloakOpenID(server_url=app.config["KEYCLOAK_URL"],
-                    client_id=app.config["KEYCLOAK_CLIENT_ID"],
-                    realm_name=app.config["KEYCLOAK_REALM"],
-                    client_secret_key=app.config["KEYCLOAK_CLIENT_SECRET"])
-        self.enabled = True
+#     def init_app(self, app):
+#         self.app = app
+#         self.keycloak_openid = KeycloakOpenID(server_url=app.config["KEYCLOAK_URL"],
+#                     client_id=app.config["KEYCLOAK_CLIENT_ID"],
+#                     realm_name=app.config["KEYCLOAK_REALM"],
+#                     client_secret_key=app.config["KEYCLOAK_CLIENT_SECRET"])
+#         self.enabled = True
     
-    def get_token(self, username, password):
-        return self.keycloak_openid.token(username, password)
+#     def get_token(self, username, password):
+#         return self.keycloak_openid.token(username, password)
 
-    def logout(self, token):
-        self.keycloak_openid.logout(token['refresh_token'])
+#     def logout(self, token):
+#         self.keycloak_openid.logout(token['refresh_token'])
 
-    def get_user_info(self, token):
-        return self.keycloak_openid.userinfo(token['access_token'])
+#     def get_user_info(self, token):
+#         return self.keycloak_openid.userinfo(token['access_token'])
 
-    def check_validity(self, token):
-        try:
-            response = self.keycloak_openid.introspect(token['access_token'])
-            if ('active' in response and response['active'] == False) or 'active' not in response:
-                return self.refresh_token(token)
-        except KeycloakGetError:
-            return self.refresh_token(token)
-        return token
+#     def check_validity(self, token):
+#         try:
+#             response = self.keycloak_openid.introspect(token['access_token'])
+#             if ('active' in response and response['active'] == False) or 'active' not in response:
+#                 return self.refresh_token(token)
+#         except KeycloakGetError:
+#             return self.refresh_token(token)
+#         return token
 
-    def refresh_token(self, token):
-        try:
-            response = self.keycloak_openid.refresh_token(token['refresh_token'])
-            if 'access_token' in response:
-                return response
-        except KeycloakGetError:
-            return None
+#     def refresh_token(self, token):
+#         try:
+#             response = self.keycloak_openid.refresh_token(token['refresh_token'])
+#             if 'access_token' in response:
+#                 return response
+#         except KeycloakGetError:
+#             return None
 
-    def is_enabled(self):
-        return self.enabled == True
+#     def is_enabled(self):
+#         return self.enabled == True
 
-keycloak_client = KeycloakClient()
+# keycloak_client = KeycloakClient()
 
 class OicClient:
     "Redirects users to OpenID Provider if configured"
@@ -177,19 +180,21 @@ class OicClient:
     def __init__(self):
         self.app = None
         self.client = None
+        self.extension_client = None
         self.registration_response = None
-        
 
-    def init_app(self, app):
-        self.app = app
+    def init_app(self):
         self.client = Client(client_authn_method=CLIENT_AUTHN_METHOD)
         self.client.provider_config(app.config['OIDC_PROVIDER_INFO_URL'])
-        info = {"client_id": app.config['OIDC_CLIENT_ID'], "client_secret": app.config['OIDC_CLIENT_SECRET']}
+        self.extension_client = ExtensionClient(client_authn_method=CLIENT_AUTHN_METHOD)
+        self.extension_client.provider_config(app.config['OIDC_PROVIDER_INFO_URL'])
+        info = {"client_id": app.config['OIDC_CLIENT_ID'], "client_secret": app.config['OIDC_CLIENT_SECRET'], "redirect_uris": [ "https://" + self.app.config['HOSTNAME'] + "/sso/login" ]}
         client_reg = RegistrationResponse(**info)
         self.client.store_registration_info(client_reg)
-    
+        self.extension_client.store_registration_info(client_reg)
+
     def get_redirect_url(self):
-        if not app.config['OIDC_ENABLED']:
+        if not self.app.config['OIDC_ENABLED']:
             return None
         f_session["state"] = rndstr()
         f_session["nonce"] = rndstr()
@@ -205,7 +210,7 @@ class OicClient:
         auth_req = self.client.construct_AuthorizationRequest(request_args=args)
         login_url = auth_req.request(self.client.authorization_endpoint)
         return login_url
-    
+
     def exchange_code(self, query):
         aresp = self.client.parse_response(AuthorizationResponse, info=query, sformat="urlencoded")
         #if not ("state" in f_session and aresp["state"] == f_session["state"]):
@@ -221,6 +226,67 @@ class OicClient:
         user_response = self.client.do_user_info_request(
             access_token=response['access_token'])
         return user_response['email'], response
+
+
+    def get_token(self, username, password):
+        args = {
+            "username": username,
+            "password": password,
+            "client_id": self.extension_client.client_id,
+            "client_secret": self.extension_client.client_secret,
+            "grant_type": "password"
+        }
+        url, body, ht_args, csi = self.extension_client.request_info(ROPCAccessTokenRequest,
+                request_args=args, method="POST")
+        response = self.extension_client.request_and_return(url, AccessTokenResponse, "POST", body, "json", "", ht_args)
+        return response
+
+    def get_user_info(self, token):
+        return self.client.do_user_info_request(
+            access_token=token['access_token'])
+
+    def check_validity(self, token):
+        try:
+            args = {
+                "client_id": self.extension_client.client_id,
+                "client_secret": self.extension_client.client_secret,
+                "token": token['access_token'],
+                "token_type_hint": "access_token"
+            }
+            response = self.extension_client.do_token_introspection(request_args=args)
+            print(response)
+            if ('active' in response and response['active'] == False) or 'active' not in response:
+                return self.refresh_token(token)
+        except:
+            return self.refresh_token(token)
+        return token
+    
+    def refresh_token(self, token):
+        try:
+            args = {
+                "refresh_token": token['refresh_token']
+            }
+            response = self.client.do_access_token_refresh(request_args=args, token=Token(token))
+            if 'access_token' in response:
+                return response
+        except Exception as e:
+            print(e)
+            return None
+
+    def logout(self):
+        state = rndstr()
+        f_session['state'] = state
+        args = {
+            "id_token": "",
+            "state": state,
+            "post_logout_redirect_uri": "https://" + app.config['HOSTNAME'] + "/sso/logout"
+        }
+        request = self.client.construct_EndSessionRequest(request_args=args)
+        uri, body, h_args, cis = self.client.uri_and_body(EndSessionRequest, method="GET", request_args=args, cis=request)
+        return uri
+
+    def is_enabled(self):
+        return self.app.config['OIDC_ENABLED']
 
 oic_client = OicClient()
 

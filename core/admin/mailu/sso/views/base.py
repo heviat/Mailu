@@ -9,6 +9,8 @@ from flask import redirect
 import flask
 import flask_login
 
+from oic import rndstr
+
 @sso.route('/login', methods=['GET', 'POST'])
 def login():
     device_cookie, device_cookie_username = utils.limiter.parse_device_cookie(flask.request.cookies.get('rate_limit'))
@@ -21,11 +23,7 @@ def login():
                 user = models.User.create(username) # Create user with no password to enable OpenID and Keycloak-only authentication
 
             client_ip = flask.request.headers.get('X-Real-IP', flask.request.remote_addr)
-            keycloak_token = { # Minimize session data
-                "access_token": token_response['access_token'],
-                "refresh_token": token_response['refresh_token']
-            }
-            flask.session["keycloak_token"] = keycloak_token
+            flask.session["keycloak_token"] = token_response
             flask.session.regenerate()
             flask_login.login_user(user)
             response = redirect(app.config['WEB_ADMIN'])
@@ -79,7 +77,16 @@ def login():
 @sso.route('/logout', methods=['GET'])
 @access.authenticated
 def logout():
-    flask_login.current_user.logout()
+    if utils.oic_client.is_enabled():
+        if 'state' in flask.request.args and 'state' in flask.session:
+            if flask.args.get('state') == flask.session['state']:
+                logout_legacy()
+        return redirect(utils.oic_client.logout())
+    return logout_legacy()
+    
+
+def logout_legacy():
     flask_login.logout_user()
     flask.session.destroy()
-    return flask.redirect(flask.url_for('.login'))
+    return redirect(flask.url_for('.login'))
+    

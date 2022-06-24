@@ -558,9 +558,8 @@ class User(Base, Email):
         if 'keycloak_token' not in session:
             return self._authenticated
         else:
-            token = utils.keycloak_client.check_validity(self.keycloak_token)
+            token = utils.oic_client.check_validity(self.keycloak_token)
             if token is None:
-                flask_login.current_user.logout()
                 flask_login.logout_user()
                 session.destroy()
                 return False
@@ -601,13 +600,13 @@ class User(Base, Email):
         if password == '':
             return False
         
-        if utils.keycloak_client.is_enabled():
+        if utils.oic_client.is_enabled():
             if 'keycloak_token' not in session:
                 try:
                     app.logger.warn(session)
                     app.logger.warn('Email %s', self.email)
                     app.logger.warn('Password %s', password)
-                    keycloak_token = utils.keycloak_client.get_token(self.email, password)
+                    keycloak_token = utils.oic_client.get_token(self.email, password)
                     app.logger.warn('Token %s', keycloak_token)
                     session['keycloak_token'] = keycloak_token
                 except: 
@@ -615,7 +614,7 @@ class User(Base, Email):
                 else:
                     app.logger.warn('RETURN TRUE')
                     return True
-            return utils.keycloak_client.introspect(self.keycloak_token)['active']
+            return self.is_authenticated()
         else:
             return self.check_password_legacy(password)
 
@@ -715,11 +714,6 @@ in clear-text regardless of the presence of the cache.
         """ login user when enabled and password is valid """
         user = cls.query.get(email)
         return user if (user and user.enabled and user.check_password(password)) else None
-
-    def logout(self):
-        if 'keycloak_token' in session:
-            utils.keycloak_client.logout(self.keycloak_token)
-            session.pop('keycloak_token', None)
 
 class Alias(Base, Email):
     """ An alias is an email address that redirects to some destination.
