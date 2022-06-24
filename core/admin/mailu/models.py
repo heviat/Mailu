@@ -30,8 +30,6 @@ from werkzeug.utils import cached_property
 
 from mailu import dkim, utils
 
-from keycloak import KeycloakGetError
-
 db = flask_sqlalchemy.SQLAlchemy()
 
 
@@ -516,15 +514,15 @@ class User(Base, Email):
     # Flask-login attributes
     is_active = True
     is_anonymous = False
-    _authenticated = True #Flask attribute would be is_authenticated but we needed to overrride this attribute for Keycloak checks
+    _authenticated = True #Flask attribute would be is_authenticated but we needed to overrride this attribute for OpenID checks
 
     def get_id(self):
         """ return users email address """
         return self.email
 
     @property
-    def keycloak_token(self):
-        return session['keycloak_token']
+    def openid_token(self):
+        return session['openid_token']
 
     @property
     def destination(self):
@@ -555,20 +553,20 @@ class User(Base, Email):
 
     @property
     def is_authenticated(self):
-        if 'keycloak_token' not in session:
+        if 'openid_token' not in session:
             return self._authenticated
         else:
-            token = utils.oic_client.check_validity(self.keycloak_token)
+            token = utils.oic_client.check_validity(self.openid_token)
             if token is None:
                 flask_login.logout_user()
                 session.destroy()
                 return False
-            session['keycloak_token'] = token
+            session['openid_token'] = token
             return True
 
     @is_authenticated.setter
     def is_authenticated(self, value):
-        if 'keycloak_token' not in session:
+        if 'openid_token' not in session:
            self._authenticated = value
 
     @classmethod
@@ -601,14 +599,14 @@ class User(Base, Email):
             return False
         
         if utils.oic_client.is_enabled():
-            if 'keycloak_token' not in session:
+            if 'openid_token' not in session:
                 try:
                     app.logger.warn(session)
                     app.logger.warn('Email %s', self.email)
                     app.logger.warn('Password %s', password)
-                    keycloak_token = utils.oic_client.get_token(self.email, password)
-                    app.logger.warn('Token %s', keycloak_token)
-                    session['keycloak_token'] = keycloak_token
+                    openid_token = utils.oic_client.get_token(self.email, password)
+                    app.logger.warn('Token %s', openid_token)
+                    session['openid_token'] = openid_token
                 except: 
                     return self.check_password_legacy(password)
                 else:

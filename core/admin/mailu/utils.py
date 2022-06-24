@@ -36,8 +36,6 @@ from itsdangerous.encoding import want_bytes
 from werkzeug.datastructures import CallbackDict
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from keycloak import KeycloakOpenID
-from keycloak.exceptions import KeycloakGetError
 from oic.oic import Client
 from oic.extension.client import Client as ExtensionClient
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
@@ -214,8 +212,8 @@ class OicClient:
 
     def exchange_code(self, query):
         aresp = self.client.parse_response(AuthorizationResponse, info=query, sformat="urlencoded")
-        #if not ("state" in f_session and aresp["state"] == f_session["state"]):
-        #    return None
+        if not ("state" in f_session and aresp["state"] == f_session["state"]):
+            return None, None
         args = {
             "code": aresp["code"]
         }
