@@ -612,7 +612,7 @@ class User(Base, Email):
             return self.check_password_legacy(password)
 
     def check_password_legacy(self, password):
-        if self.password is None:
+        if self.password is None or self.password == "openid":
             return False
         cache_result = self._credential_cache.get(self.get_id())
         current_salt = self.password.split('$')[3] if len(self.password.split('$')) == 5 else None
@@ -686,7 +686,7 @@ in clear-text regardless of the presence of the cache.
         return cls.query.get(email)
         
     @classmethod
-    def create(cls, email, password='ldap'):
+    def create(cls, email, password='openid'):
         email = email.split('@', 1)
         domain = Domain.query.get(email[1])
         if not domain:
@@ -697,7 +697,12 @@ in clear-text regardless of the presence of the cache.
             domain=domain,
             global_admin=False
         )
-        user.set_password(password)
+        
+        if password == 'openid':
+            user.set_password(password, True)
+        else:
+            user.set_password(password)
+        
         db.session.add(user)
         db.session.commit()
         return user
