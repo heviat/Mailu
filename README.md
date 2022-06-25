@@ -27,7 +27,7 @@ Main features include:
 - **Security**, enforced TLS, DANE, MTA-STS, Letsencrypt!, outgoing DKIM, anti-virus scanner
 - **Antispam**, auto-learn, greylisting, DMARC and SPF
 - **Freedom**, all FOSS components, no tracker included
-- **Compatibility**, OpenID Connect support for user credential handling (soon)
+- **Compatibility**, OpenID Connect support for user authentication
 
 ![Domains](docs/assets/screenshots/domains.png)
 

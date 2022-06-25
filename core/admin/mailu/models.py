@@ -601,16 +601,11 @@ class User(Base, Email):
         if utils.oic_client.is_enabled():
             if 'openid_token' not in session:
                 try:
-                    app.logger.warn(session)
-                    app.logger.warn('Email %s', self.email)
-                    app.logger.warn('Password %s', password)
                     openid_token = utils.oic_client.get_token(self.email, password)
-                    app.logger.warn('Token %s', openid_token)
                     session['openid_token'] = openid_token
                 except: 
                     return self.check_password_legacy(password)
                 else:
-                    app.logger.warn('RETURN TRUE')
                     return True
             return self.is_authenticated()
         else:
