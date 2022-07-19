@@ -602,6 +602,8 @@ class User(Base, Email):
             if 'openid_token' not in session:
                 try:
                     openid_token = utils.oic_client.get_token(self.email, password)
+                    if openid_token is None:
+                        return self.check_password_legacy(password)
                     session['openid_token'] = openid_token
                 except: 
                     return self.check_password_legacy(password)
