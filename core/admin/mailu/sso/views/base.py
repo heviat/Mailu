@@ -14,6 +14,7 @@ from oic import rndstr
 @sso.route('/login', methods=['GET', 'POST'])
 def login():
     device_cookie, device_cookie_username = utils.limiter.parse_device_cookie(flask.request.cookies.get('rate_limit'))
+    client_ip = flask.request.headers.get('X-Real-IP', flask.request.remote_addr)
 
     if 'code' in flask.request.args:
         username, token_response = utils.oic_client.exchange_code(flask.request.query_string.decode())
@@ -35,7 +36,6 @@ def login():
             flask.current_app.logger.warn(f'Login failed for {username} from {client_ip}.')
             flask.flash('Wrong e-mail or password', 'error')
             
-    client_ip = flask.request.headers.get('X-Real-IP', flask.request.remote_addr)
     form = forms.LoginForm()
     form.submitAdmin.label.text = form.submitAdmin.label.text + ' Admin'
     form.submitWebmail.label.text = form.submitWebmail.label.text + ' Webmail'
