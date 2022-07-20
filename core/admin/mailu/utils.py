@@ -220,7 +220,7 @@ class OicClient:
         response = self.client.do_access_token_request(state=aresp["state"],
             request_args=args,
             authn_method="client_secret_basic")
-        if 'access_token' not in response:
+        if 'access_token' not in response or isinstance(response, AccessTokenResponse):
             return None, None
         user_response = self.client.do_user_info_request(
             access_token=response['access_token'])
@@ -238,7 +238,10 @@ class OicClient:
         url, body, ht_args, csi = self.extension_client.request_info(ROPCAccessTokenRequest,
                 request_args=args, method="POST")
         response = self.extension_client.request_and_return(url, AccessTokenResponse, "POST", body, "json", "", ht_args)
-        return response
+        if isinstance(response, AccessTokenResponse):
+            return response
+        return None
+        
 
     def get_user_info(self, token):
         return self.client.do_user_info_request(

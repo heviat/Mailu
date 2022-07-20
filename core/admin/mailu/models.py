@@ -591,7 +591,7 @@ class User(Base, Email):
         )
         return cls._ctx
 
-    def check_password(self, password, redirect=False):
+    def check_password(self, password):
         """ verifies password against stored hash
             and updates hash if outdated
         """

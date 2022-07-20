@@ -78,6 +78,8 @@ def login():
 @access.authenticated
 def logout():
     if utils.oic_client.is_enabled():
+        if 'openid_token' not in flask.session:
+            return logout_legacy()
         if 'state' in flask.request.args and 'state' in flask.session:
             if flask.args.get('state') == flask.session['state']:
                 logout_legacy()
