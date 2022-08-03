@@ -115,7 +115,7 @@ jobs:
           DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
         run: docker-compose -f tests/build.yml build
       - name: Save all docker images
-        run: docker save ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/admin ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/clamav ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/docs ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/dovecot ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/fetchmail ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/nginx ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/none ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/postfix ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/radicale ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/rainloop ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/roundcube ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/rspamd ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/setup ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/traefik-certdumper ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/unbound -o /images/images.tar.gz
+        run: docker save ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/admin ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/clamav ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/docs ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/dovecot ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/fetchmail ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/nginx ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/none ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/postfix ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/radicale ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/snappymail ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/roundcube ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/rspamd ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/setup ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/traefik-certdumper ${{ secrets.DOCKER_REGISTRY }}${{ env.DOCKER_ORG }}/unbound -o /images/images.tar.gz
 
   test-core:
     name: Perform core tests
@@ -336,8 +336,8 @@ jobs:
           DOCKER_ORG: ${{ env.DOCKER_ORG }}
           DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
 
-  test-rainloop:
-    name: Perform rainloop tests
+  test-snappymail:
+    name: Perform snappymail tests
     runs-on: ubuntu-latest
     needs:
       - build
@@ -401,8 +401,8 @@ jobs:
         run: python3 -m pip install -r tests/requirements.txt
       - name: Copy all certs
         run: sudo -- sh -c 'mkdir -p /mailu && cp -r tests/certs /mailu && chmod 600 /mailu/certs/*'
-      - name: Test rainloop
-        run: python tests/compose/test.py rainloop 2 ${{ secrets.DOCKER_REGISTRY }} ${{ secrets.DOCKER_LOGIN }} ${{ secrets.DOCKER_PASSWORD }}
+      - name: Test snappymail
+        run: python tests/compose/test.py snappymail 2 ${{ secrets.DOCKER_REGISTRY }} ${{ secrets.DOCKER_LOGIN }} ${{ secrets.DOCKER_PASSWORD }}
         env:
           MAILU_VERSION: ${{ env.MAILU_VERSION }}
           PINNED_MAILU_VERSION: ${{ env.PINNED_MAILU_VERSION }}
@@ -563,7 +563,7 @@ jobs:
       - test-core
       - test-fetchmail
       - test-filters
-      - test-rainloop
+      - test-snappymail
       - test-roundcube
       - test-webdav
     steps:
