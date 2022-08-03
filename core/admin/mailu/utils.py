@@ -199,7 +199,7 @@ class OicClient:
         f_session["nonce"] = rndstr()
         args = {
             "client_id": self.client.client_id,
-            "response_type": "code",
+            "response_type": ["code"],
             "scope": ["openid"],
             "nonce": f_session["nonce"],
             "redirect_uri": "https://" + self.app.config['HOSTNAME'] + "/sso/login",
@@ -280,8 +280,10 @@ class OicClient:
         args = {
             "id_token": "",
             "state": state,
-            "post_logout_redirect_uri": "https://" + app.config['HOSTNAME'] + "/sso/logout"
+            "post_logout_redirect_uri": "https://" + app.config['HOSTNAME'] + "/sso/logout",
+            "client_id": self.client.client_id
         }
+
         request = self.client.construct_EndSessionRequest(request_args=args)
         uri, body, h_args, cis = self.client.uri_and_body(EndSessionRequest, method="GET", request_args=args, cis=request)
         return uri
