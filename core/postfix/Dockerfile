@@ -16,13 +16,15 @@ RUN apk add --no-cache \
 RUN pip3 install socrate==0.2.0
 
 # Shared layer between dovecot and postfix
-RUN pip3 install "podop>0.2.5"
+RUN apk add --no-cache --virtual .build-deps gcc musl-dev python3-dev \
+  && pip3 install "podop>0.2.5" \
+  && apk del .build-deps
 
 # Image specific layers under this line
 # Building pycares from source requires py3-wheel and libffi-dev packages
-RUN apk add --no-cache --virtual .build-deps gcc musl-dev python3-dev py3-wheel libffi-dev \
-  && pip3 install --no-binary :all: postfix-mta-sts-resolver==1.0.1 \
-  && apk del .build-deps
+RUN pip install --no-cache-dir --only-binary=:all: postfix-mta-sts-resolver==1.0.1 || (apk add --no-cache --virtual .build-deps gcc musl-dev python3-dev py3-wheel libffi-dev \
+  && pip3 install postfix-mta-sts-resolver==1.0.1 \
+  && apk del .build-deps )
 
 RUN apk add --no-cache postfix postfix-pcre cyrus-sasl-login rsyslog logrotate
 

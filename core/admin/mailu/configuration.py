@@ -93,8 +93,7 @@ DEFAULT_CONFIG = {
     'HOST_REDIS': 'redis',
     'HOST_FRONT': 'front',
     'SUBNET': '192.168.203.0/24',
-    'SUBNET6': None,
-    'POD_ADDRESS_RANGE': None
+    'SUBNET6': None
 }
 
 class ConfigManager:
@@ -104,7 +103,7 @@ class ConfigManager:
     DB_TEMPLATES = {
         'sqlite': 'sqlite:////{SQLITE_DATABASE_FILE}',
         'postgresql': 'postgresql://{DB_USER}:{DB_PW}@{DB_HOST}/{DB_NAME}',
-        'mysql': 'mysql://{DB_USER}:{DB_PW}@{DB_HOST}/{DB_NAME}'
+        'mysql': 'mysql+mysqlconnector://{DB_USER}:{DB_PW}@{DB_HOST}/{DB_NAME}'
     }
 
     def __init__(self):
