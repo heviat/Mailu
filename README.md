@@ -1,4 +1,4 @@
-<p align="leftr"><img src="docs/assets/logomark.png" alt="Mailu" height="200px"></p>
+<p align="leftr"><img src="docs/assets/logomark.png" alt="Mailu" height="200px">&nbsp;<img src="docs/assets/openid-logo.svg" alt="OpenID" height="200px"></p>
 
 
 Mailu is a simple yet full-featured mail server as a set of Docker images.
@@ -30,16 +30,38 @@ Main features include:
 Installation
 ============
 
-The installation process is currently not automated by an addtional fork of the Mailu setup utility. Therefore, you can use the [mailu setup utility](https://setup.mailu.io/1.9/) as you would with the normal mailu server. But after the generation of the required files, you need to update them:
+The automated installation process of the Mailu Setup Utility currently does not support the OpenID Connect extension this fork brings. You can still use the [Mailu Setup Utility](https://setup.mailu.io/1.9/) as usual, but you have perform some steps manually after downloading.
 
-You need to change every used Docker image delivered from the Dockerhub _mailu_ organization to the similar named image from Dockerhub _heviat_ - e.g. _mailu/admin_ must be _heviat/admin_.
-Moreover, to enable OpenID Connect authentication, the following configuration properties are needed in _mailu.env_:
+Every Docker image from the organization [`mailu`](https://hub.docker.com/u/mailu) must be replaced with an image from the organization [`heviat`](https://hub.docker.com/u/heviat) - e.g. [`mailu/admin`](https://hub.docker.com/r/mailu/admin) becomes [`heviat/admin`](https://hub.docker.com/u/heviat). 
 
-- *OIDC_ENABLED*: **True** or **False**
-- *OIDC_PROVIDER_INFO_URL*: the OpenID Connect provider information url (also known as _well-known_ url) e.g. <http://keycloakhost:keycloakport/auth/realms/{realm}/.well-known/openid-configuration>
-- *OIDC_CLIENT_ID*: Client ID for mailu OpenID client
-- *OIDC_CLIENT_SECRET*: Client secret for mailu OpenID client
-- *OIDC_BUTTON_NAME*: Name for the "login-with-OpenID"-button. Default: **OpenID Connect**
+Moreover, to enable OpenID Connect authentication, the following additional configuration properties are needed in `mailu.env`:
+
+|       Property Name      |                             Description                           |           Example         |
+| ------------------------ | ----------------------------------------------------------------- | ------------------------- |
+| `OIDC_ENABLED`           | Enable OpenID Connect                                             | `True` \| `False`         |
+| `OIDC_PROVIDER_INFO_URL` | OpenID Connect provider configuration url (aka. _well-known_ url) | [https://`host`:`port`/auth/realms/`realm`/.well-known/openid-configuration]() |
+| `OIDC_CLIENT_ID`         | OpenID Connect Client ID for Mailu                                | `6779ef20e75817b79602`    |
+| `OIDC_CLIENT_SECRET`     | OpenID Connect Client Secret for Mailu                            | `3d66bbd6d0a69af62de7...` |
+| `OIDC_BUTTON_NAME`       | Display text for the "login-with-OpenID" button                   | `OpenID Connect`          |
+
+Here is a snippet for easy copy paste:
+
+```properties
+###################################
+# OpenID Connect settings
+###################################
+
+# Enable OpenID Connect. Possible values: True, False
+OIDC_ENABLED=True
+# OpenID Connect Provider configuration URL
+OIDC_PROVIDER_INFO_URL=https://<host>:<port>/auth/realms/.well-known/openid-configuration
+# OpenID Connect Client id
+OIDC_CLIENT_ID=<CLIENT_ID>
+# OpenID Connect Client secret
+OIDC_CLIENT_SECRET=<CLIENT_SECRET>
+# Display text for OpenID Connect login button. Default: OpenID Connect
+OIDC_BUTTON_NAME=OpenID Connect
+```
 
 After that, the installation process should be working as expected.
 
