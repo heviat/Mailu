@@ -11,6 +11,9 @@
 variable "DOCKER_ORG" {
   default = "mailu"
 }
+variable "DOCKER_REGISTRY" {
+  default = "docker.io"
+}
 variable "DOCKER_PREFIX" {
   default = ""
 }
@@ -64,9 +67,9 @@ target "defaults" {
 # Derive all tags
 function "tag" {
   params = [image_name]
-  result = [  notequal("master",MAILU_VERSION) && notequal("master-arm",MAILU_VERSION) ? "${DOCKER_ORG}/${DOCKER_PREFIX}${image_name}:${PINNED_MAILU_VERSION}": "",
-             "${DOCKER_ORG}/${DOCKER_PREFIX}${image_name}:${MAILU_VERSION}",
-             "${DOCKER_ORG}/${DOCKER_PREFIX}${image_name}:latest"
+  result = [  notequal("master",MAILU_VERSION) && notequal("master-arm",MAILU_VERSION) ? "${DOCKER_REGISTRY}/${DOCKER_ORG}/${DOCKER_PREFIX}${image_name}:${PINNED_MAILU_VERSION}": "",
+             "${DOCKER_REGISTRY}/${DOCKER_ORG}/${DOCKER_PREFIX}${image_name}:${MAILU_VERSION}",
+             "${DOCKER_REGISTRY}/${DOCKER_ORG}/${DOCKER_PREFIX}${image_name}:latest"
           ]
 }
 
