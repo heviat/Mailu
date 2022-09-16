@@ -32,7 +32,7 @@ Installation
 
 The automated installation process of the Mailu Setup Utility currently does not support the OpenID Connect extension this fork brings. You can still use the [Mailu Setup Utility](https://setup.mailu.io/1.9/) as usual, but you have perform some steps manually after downloading.
 
-Every Docker image from the organization [`mailu`](https://hub.docker.com/u/mailu) must be replaced with an image from the organization [`heviat`](https://hub.docker.com/u/heviat) - e.g. [`mailu/admin`](https://hub.docker.com/r/mailu/admin) becomes [`heviat/admin`](https://hub.docker.com/u/heviat). 
+Every Docker image from the organization [`mailu`](https://hub.docker.com/u/mailu) must be replaced with an image from the organization [`heviat`](https://github.com/orgs/heviat/packages) at GitHub Container Registry - e.g. [`mailu/admin`](https://hub.docker.com/r/mailu/admin) becomes [`ghcr.io/heviat/admin`](https://ghcr.io/heviat/admin).
 
 Moreover, to enable OpenID Connect authentication, the following additional configuration properties are needed in `mailu.env`:
 
