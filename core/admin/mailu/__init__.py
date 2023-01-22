@@ -46,8 +46,10 @@ def create_app_from_config(config):
     # Initialize debugging tools
     if app.config.get("DEBUG"):
         debug.toolbar.init_app(app)
-        # TODO: add a specific configuration variable for profiling
-        # debug.profiler.init_app(app)
+    if app.config.get("DEBUG_PROFILER"):
+        debug.profiler.init_app(app)
+    if assets := app.config.get('DEBUG_ASSETS'):
+        app.static_folder = assets
 
     # Inject the default variables in the Jinja parser
     # TODO: move this to blueprints when needed
@@ -57,6 +59,7 @@ def create_app_from_config(config):
         return dict(
             signup_domains= signup_domains,
             config        = app.config,
+            get_locale    = utils.get_locale,
         )
 
     # Jinja filters
@@ -69,10 +72,12 @@ def create_app_from_config(config):
         return utils.flask_babel.format_datetime(value) if value else ''
 
     # Import views
-    from mailu import ui, internal, sso
+    from mailu import ui, internal, sso, api
     app.register_blueprint(ui.ui, url_prefix=app.config['WEB_ADMIN'])
     app.register_blueprint(internal.internal, url_prefix='/internal')
     app.register_blueprint(sso.sso, url_prefix='/sso')
+    if app.config.get('API_TOKEN'):
+        api.register(app, web_api_root=app.config.get('WEB_API'))
     return app
 
 

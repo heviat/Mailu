@@ -157,7 +157,11 @@ You can add a fetched account by clicking on the `Add an account` button on the 
 
 * Keep emails on the server. When ticked, retains the email message in the email account after retrieving it.
 
-Click the submit button to apply settings. With the default polling interval, fetchmail will start polling the email account after 10 minutes.
+* Scan emails. When ticked, all the fetched emails will go through the local filters (rspamd, clamav, ...).
+
+* Folders. A comma separated list of folders to fetch from the server. This is optional, by default only the INBOX will be pulled.
+
+Click the submit button to apply settings. With the default polling interval, fetchmail will start polling the email account after ``FETCHMAIL_DELAY``.
 
 
 Authentication tokens
@@ -321,13 +325,13 @@ This page also shows an overview of the following settings of an user:
 
 * Email. The email address of the user.
 
-* Features. Shows if IMAP or POP3 access is enabled.
+* Features. Shows if IMAP or POP3 access is enabled and whether the user should be allowed to spoof emails.
 
 * Storage quota. Shows how much assigned storage has been consumed.
 
 * Sending Quota. The sending quota is the limit of messages a single user can send per day. 
 
-* Comment. A desription for the user. 
+* Comment. A description for the user.
 
 * Created. Date when the user was created.
 
@@ -356,6 +360,8 @@ For adding a new user the following options can be configured.
 * Allow IMAP access. When ticked, allows email retrieval via the IMAP protocol.
 
 * Allow POP3 access. When ticked, allows email retrieval via the POP3 protocol.
+
+* Allow the user to spoof the sender. When ticked, allows the user to send email as anyone.
 
 
 Aliases

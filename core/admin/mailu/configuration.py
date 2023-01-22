@@ -1,7 +1,6 @@
 import os
 
 from datetime import timedelta
-from socrate import system
 import ipaddress
 
 DEFAULT_CONFIG = {
@@ -11,18 +10,21 @@ DEFAULT_CONFIG = {
     'BABEL_DEFAULT_TIMEZONE': 'UTC',
     'BOOTSTRAP_SERVE_LOCAL': True,
     'RATELIMIT_STORAGE_URL': '',
-    'QUOTA_STORAGE_URL': '',
     'DEBUG': False,
+    'DEBUG_PROFILER': False,
+    'DEBUG_TB_INTERCEPT_REDIRECTS': False,
+    'DEBUG_ASSETS': '',
     'DOMAIN_REGISTRATION': False,
     'TEMPLATES_AUTO_RELOAD': True,
     'MEMORY_SESSIONS': False,
+    'FETCHMAIL_ENABLED': False,
     # Database settings
     'DB_FLAVOR': None,
     'DB_USER': 'mailu',
     'DB_PW': None,
     'DB_HOST': 'database',
     'DB_NAME': 'mailu',
-    'SQLITE_DATABASE_FILE':'data/main.db',
+    'SQLITE_DATABASE_FILE': 'data/main.db',
     'SQLALCHEMY_DATABASE_URI': 'sqlite:////data/main.db',
     'SQLALCHEMY_TRACK_MODIFICATIONS': False,
     # Statistics management
@@ -65,7 +67,7 @@ DEFAULT_CONFIG = {
     # Web settings
     'SITENAME': 'Mailu',
     'WEBSITE': 'https://mailu.io',
-    'ADMIN' : 'none',
+    'ADMIN': 'none',
     'WEB_ADMIN': '/admin',
     'WEB_WEBMAIL': '/webmail',
     'WEBMAIL': 'none',
@@ -74,25 +76,21 @@ DEFAULT_CONFIG = {
     'LOGO_URL': None,
     'LOGO_BACKGROUND': None,
     # Advanced settings
+    'API': False,
+    'WEB_API': '/api',
+    'API_TOKEN': None,
     'LOG_LEVEL': 'WARNING',
     'SESSION_KEY_BITS': 128,
     'SESSION_TIMEOUT': 3600,
     'PERMANENT_SESSION_LIFETIME': 30*24*3600,
-    'SESSION_COOKIE_SECURE': True,
+    'SESSION_COOKIE_SECURE': None,
     'CREDENTIAL_ROUNDS': 12,
     'TLS_PERMISSIVE': True,
     'TZ': 'Etc/UTC',
-    # Host settings
-    'HOST_IMAP': 'imap',
-    'HOST_LMTP': 'imap:2525',
-    'HOST_POP3': 'imap',
-    'HOST_SMTP': 'smtp',
-    'HOST_AUTHSMTP': 'smtp',
-    'HOST_ADMIN': 'admin',
-    'HOST_WEBMAIL': 'webmail',
-    'HOST_WEBDAV': 'webdav:5232',
-    'HOST_REDIS': 'redis',
-    'HOST_FRONT': 'front',
+    'DEFAULT_SPAM_THRESHOLD': 80,
+    'PROXY_AUTH_WHITELIST': '',
+    'PROXY_AUTH_HEADER': 'X-Auth-Email',
+    'PROXY_AUTH_CREATE': False,
     'SUBNET': '192.168.203.0/24',
     'SUBNET6': None
 }
@@ -109,19 +107,6 @@ class ConfigManager:
 
     def __init__(self):
         self.config = dict()
-
-    def get_host_address(self, name):
-        # if MYSERVICE_ADDRESS is defined, use this
-        if f'{name}_ADDRESS' in os.environ:
-            return os.environ.get(f'{name}_ADDRESS')
-        # otherwise use the host name and resolve it
-        return system.resolve_address(self.config[f'HOST_{name}'])
-
-    def resolve_hosts(self):
-        for key in ['IMAP', 'POP3', 'AUTHSMTP', 'SMTP', 'REDIS']:
-            self.config[f'{key}_ADDRESS'] = self.get_host_address(key)
-        if self.config['WEBMAIL'] != 'none':
-            self.config['WEBMAIL_ADDRESS'] = self.get_host_address('WEBMAIL')
 
     def __get_env(self, key, value):
         key_file = key + "_FILE"
@@ -143,33 +128,41 @@ class ConfigManager:
         # get current app config
         self.config.update(app.config)
         # get environment variables
+        for key in os.environ:
+            if key.endswith('_ADDRESS'):
+                self.config[key] = os.environ[key]
+
         self.config.update({
             key: self.__coerce_value(self.__get_env(key, value))
             for key, value in DEFAULT_CONFIG.items()
         })
-        self.resolve_hosts()
 
         # automatically set the sqlalchemy string
         if self.config['DB_FLAVOR']:
             template = self.DB_TEMPLATES[self.config['DB_FLAVOR']]
             self.config['SQLALCHEMY_DATABASE_URI'] = template.format(**self.config)
 
-        self.config['RATELIMIT_STORAGE_URL'] = f'redis://{self.config["REDIS_ADDRESS"]}/2'
-        self.config['QUOTA_STORAGE_URL'] = f'redis://{self.config["REDIS_ADDRESS"]}/1'
+        if not self.config.get('RATELIMIT_STORAGE_URL'):
+            self.config['RATELIMIT_STORAGE_URL'] = f'redis://{self.config["REDIS_ADDRESS"]}/2'
+
         self.config['SESSION_STORAGE_URL'] = f'redis://{self.config["REDIS_ADDRESS"]}/3'
         self.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
         self.config['SESSION_COOKIE_HTTPONLY'] = True
+        if self.config['SESSION_COOKIE_SECURE'] is None:
+            self.config['SESSION_COOKIE_SECURE'] = self.config['TLS_FLAVOR'] != 'notls'
         self.config['SESSION_PERMANENT'] = True
         self.config['SESSION_TIMEOUT'] = int(self.config['SESSION_TIMEOUT'])
+        self.config['SESSION_KEY_BITS'] = int(self.config['SESSION_KEY_BITS'])
         self.config['PERMANENT_SESSION_LIFETIME'] = int(self.config['PERMANENT_SESSION_LIFETIME'])
         self.config['AUTH_RATELIMIT_IP_V4_MASK'] = int(self.config['AUTH_RATELIMIT_IP_V4_MASK'])
         self.config['AUTH_RATELIMIT_IP_V6_MASK'] = int(self.config['AUTH_RATELIMIT_IP_V6_MASK'])
-        hostnames = [host.strip() for host in self.config['HOSTNAMES'].split(',')]
         self.config['AUTH_RATELIMIT_EXEMPTION'] = set(ipaddress.ip_network(cidr, False) for cidr in (cidr.strip() for cidr in self.config['AUTH_RATELIMIT_EXEMPTION'].split(',')) if cidr)
         self.config['MESSAGE_RATELIMIT_EXEMPTION'] = set([s for s in self.config['MESSAGE_RATELIMIT_EXEMPTION'].lower().replace(' ', '').split(',') if s])
+        hostnames = [host.strip() for host in self.config['HOSTNAMES'].split(',')]
         self.config['HOSTNAMES'] = ','.join(hostnames)
         self.config['HOSTNAME'] = hostnames[0]
+        self.config['DEFAULT_SPAM_THRESHOLD'] = int(self.config['DEFAULT_SPAM_THRESHOLD'])
+        self.config['PROXY_AUTH_WHITELIST'] = set(ipaddress.ip_network(cidr, False) for cidr in (cidr.strip() for cidr in self.config['PROXY_AUTH_WHITELIST'].split(',')) if cidr)
 
         # update the app config
         app.config.update(self.config)
-

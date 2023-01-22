@@ -1,13 +1,11 @@
 from multiprocessing.spawn import is_forking
 from mailu import models, utils
 from flask import current_app as app
+from socrate import system
 
-import re
 import urllib
 import ipaddress
-import socket
 import sqlalchemy.exc
-import tenacity
 
 SUPPORTED_AUTH_METHODS = ["none", "plain"]
 
@@ -28,12 +26,14 @@ STATUSES = {
     }),
 }
 
+WEBMAIL_PORTS = ['10143', '10025']
+
 def check_credentials(user, password, ip, protocol=None, auth_port=None):
-    if not user or not user.enabled or (protocol == "imap" and not user.enable_imap) or (protocol == "pop3" and not user.enable_pop):
+    if not user or not user.enabled or (protocol == "imap" and not user.enable_imap and not auth_port in WEBMAIL_PORTS) or (protocol == "pop3" and not user.enable_pop):
         return False
     is_ok = False
     # webmails
-    if auth_port in ['10143', '10025'] and password.startswith('token-'):
+    if auth_port in WEBMAIL_PORTS and password.startswith('token-'):
         if utils.verify_temp_token(user.get_id(), password):
             is_ok = True
     # All tokens are 32 characters hex lowercase
@@ -129,32 +129,20 @@ def get_status(protocol, status):
     status, codes = STATUSES[status]
     return status, codes[protocol]
 
-def extract_host_port(host_and_port, default_port):
-    host, _, port = re.match('^(.*?)(:([0-9]*))?$', host_and_port).groups()
-    return host, int(port) if port else default_port
-
 def get_server(protocol, authenticated=False):
     if protocol == "imap":
-        hostname, port = extract_host_port(app.config['IMAP_ADDRESS'], 143)
+        hostname, port = app.config['IMAP_ADDRESS'], 143
     elif protocol == "pop3":
-        hostname, port = extract_host_port(app.config['POP3_ADDRESS'], 110)
+        hostname, port = app.config['IMAP_ADDRESS'], 110
     elif protocol == "smtp":
         if authenticated:
-            hostname, port = extract_host_port(app.config['AUTHSMTP_ADDRESS'], 10025)
+            hostname, port = app.config['SMTP_ADDRESS'], 10025
         else:
-            hostname, port = extract_host_port(app.config['SMTP_ADDRESS'], 25)
+            hostname, port = app.config['SMTP_ADDRESS'], 25
     try:
-        # test if hostname is already resolved to an ip adddress
+        # test if hostname is already resolved to an ip address
         ipaddress.ip_address(hostname)
     except:
         # hostname is not an ip address - so we need to resolve it
-        hostname = resolve_hostname(hostname)
+        hostname = system.resolve_hostname(hostname)
     return hostname, port
-
-@tenacity.retry(stop=tenacity.stop_after_attempt(100),
-                wait=tenacity.wait_random(min=2, max=5))
-def resolve_hostname(hostname):
-    """ This function uses system DNS to resolve a hostname.
-    It is capable of retrying in case the host is not immediately available
-    """
-    return socket.gethostbyname(hostname)

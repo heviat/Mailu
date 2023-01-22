@@ -37,10 +37,10 @@ group "default" {
     "antispam",
     "front",
     "imap",
+    "oletools",
     "smtp",
 
-    "snappymail",
-    "roundcube",
+    "webmail",
 
     "antivirus",
     "fetchmail",
@@ -82,11 +82,24 @@ function "tag" {
 #-----------------------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------------------
+# Base images
+# -----------------------------------------------------------------------------------------
+target "base" {
+  inherits = ["defaults"]
+  context = "core/base/"
+}
+
+target "assets" {
+  inherits = ["defaults"]
+  context = "core/admin/assets/"
+}
+
+# -----------------------------------------------------------------------------------------
 # Documentation and setup images
 # -----------------------------------------------------------------------------------------
 target "docs" {
   inherits = ["defaults"]
-  context = "docs"
+  context = "docs/"
   tags = tag("docs")
   args = {
     version = "${MAILU_VERSION}"
@@ -96,7 +109,10 @@ target "docs" {
 
 target "setup" {
   inherits = ["defaults"]
-  context="setup"
+  context = "setup/"
+  contexts = {
+    base = "target:base"
+  }
   tags = tag("setup")
 }
 
@@ -105,53 +121,78 @@ target "setup" {
 # -----------------------------------------------------------------------------------------
 target "none" {
   inherits = ["defaults"]
-  context="core/none"
+  context = "core/none/"
+  contexts = {
+    base = "target:base"
+  }
   tags = tag("none")
 }
 
 target "admin" {
   inherits = ["defaults"]
-  context="core/admin"
+  context = "core/admin/"
+  contexts = {
+    base = "target:base"
+    assets = "target:assets"
+  }
   tags = tag("admin")
 }
 
 target "antispam" {
   inherits = ["defaults"]
-  context="core/rspamd"
+  context = "core/rspamd/"
+  contexts = {
+    base = "target:base"
+  }
   tags = tag("rspamd")
 }
 
 target "front" {
   inherits = ["defaults"]
-  context="core/nginx"
+  context = "core/nginx/"
+  contexts = {
+    base = "target:base"
+  }
   tags = tag("nginx")
+}
+
+target "oletools" {
+  inherits = ["defaults"]
+  context = "core/oletools/"
+  contexts = {
+    base = "target:base"
+  }
+  tags = tag("oletools")
 }
 
 target "imap" {
   inherits = ["defaults"]
-  context="core/dovecot"
+  context = "core/dovecot/"
+  contexts = {
+    base = "target:base"
+  }
   tags = tag("dovecot")
 }
 
 target "smtp" {
   inherits = ["defaults"]
-  context="core/postfix"
+  context = "core/postfix/"
+  contexts = {
+    base = "target:base"
+  }
   tags = tag("postfix")
 }
 
 # -----------------------------------------------------------------------------------------
-# Webmail images
+# Webmail image
 # -----------------------------------------------------------------------------------------
-target "snappymail" {
+target "webmail" {
   inherits = ["defaults"]
-  context="webmails/snappymail"
-  tags = tag("snappymail")
-}
-
-target "roundcube" {
-  inherits = ["defaults"]
-  context="webmails/roundcube"
-  tags = tag("roundcube")
+  context = "webmails/"
+  contexts = {
+    base = "target:base"
+  }
+  tags = tag("webmail")
 }
 
 # -----------------------------------------------------------------------------------------
@@ -159,30 +200,42 @@ target "roundcube" {
 # -----------------------------------------------------------------------------------------
 target "antivirus" {
   inherits = ["defaults"]
-  context="optional/clamav"
+  context = "optional/clamav/"
+  contexts = {
+    base = "target:base"
+  }
   tags = tag("clamav")
 }
 
 target "fetchmail" {
   inherits = ["defaults"]
-  context="optional/fetchmail"
+  context = "optional/fetchmail/"
+  contexts = {
+    base = "target:base"
+  }
   tags = tag("fetchmail")
 }
 
 target "resolver" {
   inherits = ["defaults"]
-  context="optional/unbound"
+  context = "optional/unbound/"
+  contexts = {
+    base = "target:base"
+  }
   tags = tag("unbound")
 }
 
 target "traefik-certdumper" {
   inherits = ["defaults"]
-  context="optional/traefik-certdumper"
+  context = "optional/traefik-certdumper/"
   tags = tag("traefik-certdumper")
 }
 
 target "webdav" {
   inherits = ["defaults"]
-  context="optional/radicale"
+  context = "optional/radicale/"
+  contexts = {
+    base = "target:base"
+  }
   tags = tag("radicale")
 }

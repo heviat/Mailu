@@ -1,4 +1,4 @@
-{% call macros.panel("info", "Step 3 - Pick some features") %}
+{% call macros.panel("info", "Step 2 - Pick some features") %}
 <p>Mailu comes with multiple base features, including a specific admin
 interface, Web email clients, antispam, antivirus, etc.
 In this section you can enable the services to you liking.</p>
@@ -53,6 +53,15 @@ the security implications caused by such an increase of attack surface.<p>
   </label>
 
   <i>Fetchmail allows users to retrieve mail from an external mail-server via IMAP/POP3 and puts it in their inbox.</i>
+</div>
+
+<div class="form-check form-check-inline">
+  <label class="form-check-label">
+    <input class="form-check-input" type="checkbox" name="oletools_enabled" value="true" checked>
+    Enable oletools
+  </label>
+
+  <i>Oletools scans documents in email attachements for malicious macros. It has a much lower memory footprint than a full-fledged anti-virus.</i>
 </div>
 
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>

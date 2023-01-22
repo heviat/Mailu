@@ -130,8 +130,8 @@ To re-build only specific containers at a later time.
 
   docker buildx bake -f tests/build.hcl admin webdav
 
-If you have to push the images to Docker Hub for testing in Docker Swarm or a remote
-host, you have to define ``DOCKER_ORG`` (usually your Docker user-name) and login to
+If you have to push the images to Docker Hub for testing, you have to
+define ``DOCKER_ORG`` (usually your Docker user-name) and login to
 the hub.
 
 .. code-block:: bash
@@ -312,35 +312,48 @@ The following must be done on every PR or after every new commit to an existing 
 If git opens a editor for a commit message just save and exit as-is. If you have a merge conflict,
 see above and do the complete procedure from ``git fetch`` onward again.
 
-Web administration
-------------------
 
-The administration Web interface requires a proper dev environment that can easily be setup using
-``virtualenv`` (make sure you are using Python 3) :
+Web administration development
+------------------------------
+
+The administration web interface requires a proper dev environment that can easily
+be setup using the ``run_dev.sh`` shell script. You need ``docker`` or ``podman``
+to run it. It will create a local webserver listening at port 8080:
 
 .. code-block:: bash
 
   cd core/admin
-  virtualenv .
-  source bin/activate
+  ./run_dev.sh
   pip install -r requirements.txt
+  [...]
+  =============================================================================
+  The "mailu-dev" container was built using this configuration:
 
-You can then export the path to the development database (use four slashes for absolute path):
+  DEV_NAME="mailu-dev"
+  DEV_DB=""
+  DEV_PROFILER="false"
+  DEV_LISTEN="127.0.0.1:8080"
+  DEV_ADMIN="admin@example.com"
+  DEV_PASSWORD="letmein"
+  =============================================================================
+  [...]
+  =============================================================================
+  The Mailu UI can be found here: http://127.0.0.1:8080/sso/login
+  You can log in with user admin@example.com and password letmein
+  =============================================================================
+
+The container will use an empty database and a default user/password unless you
+specify a database file to use by setting ``$DEV_DB``.
 
 .. code-block:: bash
 
-  export SQLALCHEMY_DATABASE_URI=sqlite:///path/to/dev.db
-
-And finally run the server with debug enabled:
-
-.. code-block:: bash
-
-  python run.py
+  DEV_DB="/path/to/dev.db" ./run_dev.sh
 
 Any change to the files will automatically restart the Web server and reload the files.
 
-When using the development environment, a debugging toolbar is displayed on the right side
-of the screen, that you can open to access query details, internal variables, etc.
+When using the development environment, a debugging toolbar is displayed on the right
+side of the screen, where you can access query details, internal variables, etc.
+
 
 Documentation
 -------------

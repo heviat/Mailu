@@ -41,6 +41,16 @@ class MultipleEmailAddressesVerify(object):
         if not pattern.match(field.data.replace(" ", "")):
             raise validators.ValidationError(self.message)
 
+class MultipleFoldersVerify(object):
+    """ Ensure that we have CSV formated data """
+    def __init__(self,message=_('Invalid list of folders.')):
+        self.message = message
+
+    def __call__(self, form, field):
+        pattern = re.compile(r'^[^,]+(,[^,]+)*$')
+        if not pattern.match(field.data.replace(" ", "")):
+            raise validators.ValidationError(self.message)
+
 class ConfirmationForm(flask_wtf.FlaskForm):
     submit = fields.SubmitField(_('Confirm'))
 
@@ -59,6 +69,7 @@ class DomainSignupForm(flask_wtf.FlaskForm):
     localpart = fields.StringField(_('Initial admin'), [validators.DataRequired()])
     pw = fields.PasswordField(_('Admin password'), [validators.DataRequired()])
     pw2 = fields.PasswordField(_('Confirm password'), [validators.EqualTo('pw')])
+    pwned = fields.HiddenField(label='', default=-1)
     captcha = flask_wtf.RecaptchaField()
     submit = fields.SubmitField(_('Create'))
 
@@ -79,9 +90,11 @@ class UserForm(flask_wtf.FlaskForm):
     localpart = fields.StringField(_('E-mail'), [validators.DataRequired(), validators.Regexp(LOCALPART_REGEX)])
     pw = fields.PasswordField(_('Password'))
     pw2 = fields.PasswordField(_('Confirm password'), [validators.EqualTo('pw')])
+    pwned = fields.HiddenField(label='', default=-1)
     quota_bytes = fields_.IntegerSliderField(_('Quota'), default=10**9)
     enable_imap = fields.BooleanField(_('Allow IMAP access'), default=True)
     enable_pop = fields.BooleanField(_('Allow POP3 access'), default=True)
+    allow_spoofing = fields.BooleanField(_('Allow the user to spoof the sender (send email as anyone)'), default=False)
     displayed_name = fields.StringField(_('Displayed name'))
     comment = fields.StringField(_('Comment'))
     enabled = fields.BooleanField(_('Enabled'), default=True)
@@ -92,6 +105,7 @@ class UserSignupForm(flask_wtf.FlaskForm):
     localpart = fields.StringField(_('Email address'), [validators.DataRequired(), validators.Regexp(LOCALPART_REGEX)])
     pw = fields.PasswordField(_('Password'), [validators.DataRequired()])
     pw2 = fields.PasswordField(_('Confirm password'), [validators.EqualTo('pw')])
+    pwned = fields.HiddenField(label='', default=-1)
     submit = fields.SubmitField(_('Sign up'))
 
 class UserSignupFormCaptcha(UserSignupForm):
@@ -111,6 +125,7 @@ class UserSettingsForm(flask_wtf.FlaskForm):
 class UserPasswordForm(flask_wtf.FlaskForm):
     pw = fields.PasswordField(_('Password'), [validators.DataRequired()])
     pw2 = fields.PasswordField(_('Password check'), [validators.DataRequired()])
+    pwned = fields.HiddenField(label='', default=-1)
     submit = fields.SubmitField(_('Update password'))
 
 
@@ -119,8 +134,8 @@ class UserReplyForm(flask_wtf.FlaskForm):
     reply_subject = fields.StringField(_('Reply subject'))
     reply_body = fields.StringField(_('Reply body'),
         widget=widgets.TextArea())
-    reply_startdate = fields.html5.DateField(_('Start of vacation'))
-    reply_enddate = fields.html5.DateField(_('End of vacation'))
+    reply_startdate = fields.DateField(_('Start of vacation'))
+    reply_enddate = fields.DateField(_('End of vacation'))
     submit = fields.SubmitField(_('Update'))
 
 
@@ -160,11 +175,13 @@ class FetchForm(flask_wtf.FlaskForm):
         ('imap', 'IMAP'), ('pop3', 'POP3')
     ])
     host = fields.StringField(_('Hostname or IP'), [validators.DataRequired()])
-    port = fields.IntegerField(_('TCP port'), [validators.DataRequired(), validators.NumberRange(min=0, max=65535)])
-    tls = fields.BooleanField(_('Enable TLS'))
+    port = fields.IntegerField(_('TCP port'), [validators.DataRequired(), validators.NumberRange(min=0, max=65535)], default=993)
+    tls = fields.BooleanField(_('Enable TLS'), default=True)
     username = fields.StringField(_('Username'), [validators.DataRequired()])
     password = fields.PasswordField(_('Password'))
     keep = fields.BooleanField(_('Keep emails on the server'))
+    scan = fields.BooleanField(_('Rescan emails locally'))
+    folders = fields.StringField(_('Folders to fetch on the server'), [validators.Optional(), MultipleFoldersVerify()], default='INBOX,Junk')
     submit = fields.SubmitField(_('Submit'))
 
 

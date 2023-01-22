@@ -2,7 +2,6 @@
 """
 
 import os
-import smtplib
 import json
 
 from datetime import date
@@ -26,6 +25,7 @@ from flask import current_app as app, session
 from sqlalchemy.ext import declarative
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.inspection import inspect
+from sqlalchemy.orm.attributes import flag_modified
 from werkzeug.utils import cached_property
 
 from mailu import dkim, utils
@@ -75,7 +75,7 @@ class CommaSeparatedList(db.TypeDecorator):
     """ Stores a list as a comma-separated string, compatible with Postfix.
     """
 
-    impl = db.String
+    impl = db.String(255)
     cache_ok = True
     python_type = list
 
@@ -96,7 +96,7 @@ class JSONEncoded(db.TypeDecorator):
     """ Represents an immutable structure as a json-encoded string.
     """
 
-    impl = db.String
+    impl = db.String(255)
     cache_ok = True
     python_type = str
 
@@ -153,6 +153,10 @@ class Base(db.Model):
             primary = getattr(self, self.__table__.primary_key.columns.values()[0].name)
             self.__hashed = id(self) if primary is None else hash(primary)
         return self.__hashed
+
+    def dont_change_updated_at(self):
+        """ Mark updated_at as modified, but keep the old date when updating the model"""
+        flag_modified(self, 'updated_at')
 
 
 # Many-to-many association table for domain managers
@@ -415,14 +419,18 @@ class Email(object):
 
     def sendmail(self, subject, body):
         """ send an email to the address """
-        f_addr = f'{app.config["POSTMASTER"]}@{idna.encode(app.config["DOMAIN"]).decode("ascii")}'
-        with smtplib.SMTP(app.config['HOST_AUTHSMTP'], port=10025) as smtp:
-            to_address = f'{self.localpart}@{idna.encode(self.domain_name).decode("ascii")}'
-            msg = text.MIMEText(body)
-            msg['Subject'] = subject
-            msg['From'] = f_addr
-            msg['To'] = to_address
-            smtp.sendmail(f_addr, [to_address], msg.as_string())
+        try:
+            f_addr = f'{app.config["POSTMASTER"]}@{idna.encode(app.config["DOMAIN"]).decode("ascii")}'
+            with smtplib.LMTP(host=app.config['IMAP_ADDRESS'], port=2525) as lmtp:
+                to_address = f'{self.localpart}@{idna.encode(self.domain_name).decode("ascii")}'
+                msg = text.MIMEText(body)
+                msg['Subject'] = subject
+                msg['From'] = f_addr
+                msg['To'] = to_address
+                lmtp.sendmail(f_addr, [to_address], msg.as_string())
+            return True
+        except smtplib.SMTPException:
+            return False
 
     @classmethod
     def resolve_domain(cls, email):
@@ -496,6 +504,7 @@ class User(Base, Email):
     # Features
     enable_imap = db.Column(db.Boolean, nullable=False, default=True)
     enable_pop = db.Column(db.Boolean, nullable=False, default=True)
+    allow_spoofing = db.Column(db.Boolean, nullable=False, default=False)
 
     # Filters
     forward_enabled = db.Column(db.Boolean, nullable=False, default=False)
@@ -513,7 +522,7 @@ class User(Base, Email):
     displayed_name = db.Column(db.String(160), nullable=False, default='')
     spam_enabled = db.Column(db.Boolean, nullable=False, default=True)
     spam_mark_as_read = db.Column(db.Boolean, nullable=False, default=True)
-    spam_threshold = db.Column(db.Integer, nullable=False, default=80)
+    spam_threshold = db.Column(db.Integer, nullable=False, default=lambda:int(app.config.get("DEFAULT_SPAM_THRESHOLD", 80)))
 
     # Flask-login attributes
     is_active = True
@@ -545,8 +554,8 @@ class User(Base, Email):
         now = date.today()
         return (
             self.reply_enabled and
-            self.reply_startdate < now and
-            self.reply_enddate > now
+            self.reply_startdate <= now and
+            self.reply_enddate >= now
         )
 
     @property
@@ -832,6 +841,8 @@ class Fetch(Base):
     username = db.Column(db.String(255), nullable=False)
     password = db.Column(db.String(255), nullable=False)
     keep = db.Column(db.Boolean, nullable=False, default=False)
+    scan = db.Column(db.Boolean, nullable=False, default=False)
+    folders = db.Column(CommaSeparatedList, nullable=True, default=list)
     last_check = db.Column(db.DateTime, nullable=True)
     error = db.Column(db.String(1023), nullable=True)
 

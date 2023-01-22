@@ -143,8 +143,9 @@ def postfix_sender_login(sender):
     if localpart is None:
         return flask.jsonify(",".join(wildcard_senders)) if wildcard_senders else flask.abort(404)
     localpart = localpart[:next((i for i, ch in enumerate(localpart) if ch in flask.current_app.config.get('RECIPIENT_DELIMITER')), None)]
-    destinations = models.Email.resolve_destination(localpart, domain_name, True) or []
-    destinations.extend(wildcard_senders)
+    destinations = set(models.Email.resolve_destination(localpart, domain_name, True) or [])
+    destinations.update(wildcard_senders)
+    destinations.update(i[0] for i in models.User.query.filter_by(allow_spoofing=True).with_entities(models.User.email).all())
     if destinations:
         return flask.jsonify(",".join(idna_encode(destinations)))
     return flask.abort(404)
@@ -157,21 +158,6 @@ def postfix_sender_rate(sender):
         flask.abort(404)
     user = models.User.get(sender) or flask.abort(404)
     return flask.abort(404) if user.sender_limiter.hit() else flask.jsonify("450 4.2.1 You are sending too many emails too fast.")
-
-@internal.route("/postfix/sender/access/<path:sender>")
-def postfix_sender_access(sender):
-    """ Simply reject any sender that pretends to be from a local domain
-    """
-    if '@' in sender:
-        if sender.startswith('<') and sender.endswith('>'):
-            sender = sender[1:-1]
-        try:
-            localpart, domain_name = models.Email.resolve_domain(sender)
-            if models.Domain.query.get(domain_name):
-                return flask.jsonify("REJECT")
-        except sqlalchemy.exc.StatementError:
-            pass
-    return flask.abort(404)
 
 # idna encode domain part of each address in list of addresses
 def idna_encode(addresses):

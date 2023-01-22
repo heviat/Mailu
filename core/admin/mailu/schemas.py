@@ -19,7 +19,7 @@ from marshmallow_sqlalchemy.fields import RelatedList
 
 from flask_marshmallow import Marshmallow
 
-from OpenSSL import crypto
+from cryptography.hazmat.primitives import serialization
 
 from pygments import highlight
 from pygments.token import Token
@@ -609,8 +609,8 @@ class DkimKeyField(fields.String):
 
         # check key validity
         try:
-            crypto.load_privatekey(crypto.FILETYPE_PEM, value)
-        except crypto.Error as exc:
+            serialization.load_pem_private_key(bytes(value, "ascii"), password=None)
+        except (UnicodeEncodeError, ValueError) as exc:
             raise ValidationError(f'invalid dkim key {bad_key!r}') from exc
         else:
             return value
@@ -909,16 +909,23 @@ class BaseSchema(ma.SQLAlchemyAutoSchema, Storage):
         # stabilize import of auto-increment primary keys (not required),
         # by matching import data to existing items and setting primary key
         if not self._primary in data:
-            for item in getattr(self.recall('parent'), self.recall('field', 'parent')):
-                existing = self.dump(item, many=False)
-                this = existing.pop(self._primary)
-                if data == existing:
-                    instance = item
-                    data[self._primary] = this
-                    break
+            parent = self.recall('parent')
+            if parent is not None:
+                for item in getattr(parent, self.recall('field', 'parent')):
+                    existing = self.dump(item, many=False)
+                    this = existing.pop(self._primary)
+                    if data == existing:
+                        instance = item
+                        data[self._primary] = this
+                        break
 
         # try to load instance
         instance = self.instance or self.get_instance(data)
+
+        # remember instance as parent for pruning siblings
+        if not self.Meta.sibling and self.context.get('update'):
+            self.store('parent', instance)
+
         if instance is None:
 
             if '__delete__' in data:
@@ -931,9 +938,6 @@ class BaseSchema(ma.SQLAlchemyAutoSchema, Storage):
         else:
 
             if self.context.get('update'):
-                # remember instance as parent for pruning siblings
-                if not self.Meta.sibling:
-                    self.store('parent', instance)
                 # delete instance from session when marked
                 if '__delete__' in data:
                     self.opts.sqla_session.delete(instance)
@@ -968,7 +972,7 @@ class BaseSchema(ma.SQLAlchemyAutoSchema, Storage):
                                 ) from exc
                     # sort list of new values
                     data[key] = sorted(new_value)
-                    # log backref modification not catched by modify hook
+                    # log backref modification not caught by modify hook
                     if isinstance(self.fields[key], RelatedList):
                         if callback := self.context.get('callback'):
                             before = {str(v) for v in getattr(instance, key)}
@@ -1014,14 +1018,16 @@ class BaseSchema(ma.SQLAlchemyAutoSchema, Storage):
                 del_items = True
 
         if add_items or del_items:
-            existing = {item[self._primary] for item in items if self._primary in item}
-            for item in getattr(self.recall('parent'), self.recall('field', 'parent')):
-                key = getattr(item, self._primary)
-                if key not in existing:
-                    if add_items:
-                        items.append({self._primary: key})
-                    else:
-                        items.append({self._primary: key, '__delete__': '?'})
+            parent = self.recall('parent')
+            if parent is not None:
+                existing = {item[self._primary] for item in items if self._primary in item}
+                for item in getattr(parent, self.recall('field', 'parent')):
+                    key = getattr(item, self._primary)
+                    if key not in existing:
+                        if add_items:
+                            items.append({self._primary: key})
+                        else:
+                            items.append({self._primary: key, '__delete__': '?'})
 
         return items
 

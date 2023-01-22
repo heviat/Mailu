@@ -649,7 +649,7 @@ class MailuSessionExtension:
                 redis.StrictRedis().from_url(app.config['SESSION_STORAGE_URL'])
             )
 
-            # clean expired sessions oonce on first use in case lifetime was changed
+            # clean expired sessions once on first use in case lifetime was changed
             def cleaner():
                 with cleaned.get_lock():
                     if not cleaned.value:
@@ -684,3 +684,21 @@ def gen_temp_token(email, session):
             app.config['PERMANENT_SESSION_LIFETIME'],
     )
     return token
+
+def isBadOrPwned(form):
+    try:
+        if len(form.pw.data) < 8:
+            return "This password is too short."
+        breaches = int(form.pwned.data)
+    except ValueError:
+        breaches = -1
+    if breaches > 0:
+        return f"This password appears in {breaches} data breaches! It is not unique; please change it."
+    return None
+
+def formatCSVField(field):
+    if isinstance(field.data,str):
+        data = field.data.replace(" ","").split(",")
+    else:
+        data = field.data
+    field.data = ", ".join(data)

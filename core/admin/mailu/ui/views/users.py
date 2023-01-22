@@ -1,4 +1,4 @@
-from mailu import models
+from mailu import models, utils
 from mailu.ui import ui, access, forms
 from flask import current_app as app
 
@@ -28,6 +28,10 @@ def user_create(domain_name):
         form.quota_bytes.validators = [
             wtforms.validators.NumberRange(max=domain.max_quota_bytes)]
     if form.validate_on_submit():
+        if msg := utils.isBadOrPwned(form):
+            flask.flash(msg, "error")
+            return flask.render_template('user/create.html',
+                domain=domain, form=form)
         if domain.has_email(form.localpart.data):
             flask.flash('Email is already used', 'error')
         else:
@@ -60,6 +64,11 @@ def user_edit(user_email):
         form.quota_bytes.validators = [
             wtforms.validators.NumberRange(max=max_quota_bytes)]
     if form.validate_on_submit():
+        if form.pw.data:
+            if msg := utils.isBadOrPwned(form):
+                flask.flash(msg, "error")
+                return flask.render_template('user/edit.html', form=form, user=user,
+                    domain=user.domain, max_quota_bytes=max_quota_bytes)
         form.populate_obj(user)
         if form.pw.data:
             user.set_password(form.pw.data)
@@ -91,11 +100,7 @@ def user_settings(user_email):
     user_email_or_current = user_email or flask_login.current_user.email
     user = models.User.query.get(user_email_or_current) or flask.abort(404)
     form = forms.UserSettingsForm(obj=user)
-    if isinstance(form.forward_destination.data,str):
-        data = form.forward_destination.data.replace(" ","").split(",")
-    else:
-        data = form.forward_destination.data
-    form.forward_destination.data = ", ".join(data)
+    utils.formatCSVField(form.forward_destination)
     if form.validate_on_submit():
         form.forward_destination.data = form.forward_destination.data.replace(" ","").split(",")
         form.populate_obj(user)
@@ -119,6 +124,9 @@ def user_password(user_email):
         if form.pw.data != form.pw2.data:
             flask.flash('Passwords do not match', 'error')
         else:
+            if msg := utils.isBadOrPwned(form):
+                flask.flash(msg, "error")
+                return flask.render_template('user/password.html', form=form, user=user)
             flask.session.regenerate()
             user.set_password(form.pw.data)
             models.db.session.commit()
@@ -170,6 +178,9 @@ def user_signup(domain_name=None):
         if domain.has_email(form.localpart.data) or models.Alias.resolve(form.localpart.data, domain_name):
             flask.flash('Email is already used', 'error')
         else:
+            if msg := utils.isBadOrPwned(form):
+                flask.flash(msg, "error")
+                return flask.render_template('user/signup.html', domain=domain, form=form)
             flask.session.regenerate()
             user = models.User(domain=domain)
             form.populate_obj(user)

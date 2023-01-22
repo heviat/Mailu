@@ -103,16 +103,43 @@ services:
       - {{ dns }}
     {% endif %}
 
+{% if oletools_enabled %}
+  oletools:
+    image: ${DOCKER_ORG:-mailu}/${DOCKER_PREFIX:-}oletools:${MAILU_VERSION:-{{ version }}}
+    hostname: oletools
+    restart: always
+    networks:
+      - noinet
+    depends_on:
+    {% if resolver_enabled %}
+      - resolver
+    dns:
+      - {{ dns }}
+    {% endif %}
+{% endif %}
+
   antispam:
     image: ${DOCKER_ORG:-mailu}/${DOCKER_PREFIX:-}rspamd:${MAILU_VERSION:-{{ version }}}
     hostname: antispam
     restart: always
     env_file: {{ env }}
+{% if oletools_enabled %}
+    networks:
+      - default
+      - noinet
+{% endif %}
     volumes:
       - "{{ root }}/filter:/var/lib/rspamd"
       - "{{ root }}/overrides/rspamd:/etc/rspamd/override.d:ro"
     depends_on:
       - front
+      - redis
+    {% if oletools_enabled %}
+      - oletools
+    {% endif %}
+    {% if antivirus_enabled %}
+      - antivirus
+    {% endif %}
     {% if resolver_enabled %}
       - resolver
     dns:
@@ -157,8 +184,11 @@ services:
     env_file: {{ env }}
     volumes:
       - "{{ root }}/data/fetchmail:/data"
-    {% if resolver_enabled %}
     depends_on:
+      - admin
+      - smtp
+      - imap
+    {% if resolver_enabled %}
       - resolver
     dns:
       - {{ dns }}
@@ -168,7 +198,7 @@ services:
   # Webmail
   {% if webmail_type != 'none' %}
   webmail:
-    image: ${DOCKER_ORG:-mailu}/${DOCKER_PREFIX:-}{{ webmail_type }}:${MAILU_VERSION:-{{ version }}}
+    image: ${DOCKER_ORG:-mailu}/${DOCKER_PREFIX:-}webmail:${MAILU_VERSION:-{{ version }}}
     restart: always
     env_file: {{ env }}
     volumes:
@@ -196,3 +226,8 @@ networks:
         {% if ipv6_enabled %}
         - subnet: {{ subnet6 }}
         {% endif %}
+{% if oletools_enabled %}
+  noinet:
+    driver: bridge
+    internal: true
+{% endif %}
