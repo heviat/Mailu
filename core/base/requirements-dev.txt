@@ -39,6 +39,7 @@ Werkzeug
 WTForms
 WTForms-Components
 xmltodict
+oic
 
 # core/nginx
 watchdog
