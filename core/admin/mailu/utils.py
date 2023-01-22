@@ -127,51 +127,6 @@ class PrefixMiddleware(object):
 
 proxy = PrefixMiddleware()
 
-# class KeycloakClient:
-#     "Verifies user credentials for nginx mail authentication using Keycloak service"
-
-#     def __init__(self):
-#         self.enabled = False
-
-#     def init_app(self, app):
-#         self.app = app
-#         self.keycloak_openid = KeycloakOpenID(server_url=app.config["KEYCLOAK_URL"],
-#                     client_id=app.config["KEYCLOAK_CLIENT_ID"],
-#                     realm_name=app.config["KEYCLOAK_REALM"],
-#                     client_secret_key=app.config["KEYCLOAK_CLIENT_SECRET"])
-#         self.enabled = True
-    
-#     def get_token(self, username, password):
-#         return self.keycloak_openid.token(username, password)
-
-#     def logout(self, token):
-#         self.keycloak_openid.logout(token['refresh_token'])
-
-#     def get_user_info(self, token):
-#         return self.keycloak_openid.userinfo(token['access_token'])
-
-#     def check_validity(self, token):
-#         try:
-#             response = self.keycloak_openid.introspect(token['access_token'])
-#             if ('active' in response and response['active'] == False) or 'active' not in response:
-#                 return self.refresh_token(token)
-#         except KeycloakGetError:
-#             return self.refresh_token(token)
-#         return token
-
-#     def refresh_token(self, token):
-#         try:
-#             response = self.keycloak_openid.refresh_token(token['refresh_token'])
-#             if 'access_token' in response:
-#                 return response
-#         except KeycloakGetError:
-#             return None
-
-#     def is_enabled(self):
-#         return self.enabled == True
-
-# keycloak_client = KeycloakClient()
-
 class OicClient:
     "Redirects users to OpenID Provider if configured"
 
@@ -224,7 +179,7 @@ class OicClient:
             return None, None
         user_response = self.client.do_user_info_request(
             access_token=response['access_token'])
-        return user_response['email'], response
+        return user_response['email'], user_response['sub'], response
 
 
     def get_token(self, username, password):
@@ -287,6 +242,11 @@ class OicClient:
         request = self.client.construct_EndSessionRequest(request_args=args)
         uri, body, h_args, cis = self.client.uri_and_body(EndSessionRequest, method="GET", request_args=args, cis=request)
         return uri
+    
+    def backchannel_logout(self, req, args):
+        sub = self.client.backchannel_logout(req, args, self.app)
+        if sub != None and sub != '':
+            MailuSessionExtension.prune_sessions(None, None, self.app, sub)
 
     def is_enabled(self):
         return self.app is not None and self.app.config['OIDC_ENABLED']
@@ -617,7 +577,7 @@ class MailuSessionExtension:
         return count
 
     @staticmethod
-    def prune_sessions(uid=None, keep=None, app=None):
+    def prune_sessions(uid=None, keep=None, app=None,sub=None):
         """ Remove sessions
             uid: remove all sessions (NONE) or sessions belonging to a specific user
             keep: keep listed sessions
@@ -631,8 +591,15 @@ class MailuSessionExtension:
         count = 0
         for key in app.session_store.list(prefix):
             if key not in keep and not key.startswith(b'token-'):
-                app.session_store.delete(key)
-                count += 1
+                if sub != None:
+                    if sessid := app.session_store.get(key):
+                        session = MailuSession(sessid, app)
+                        if session.get('openid_sub', '') == sub:
+                            app.session_store.delete(key)
+                            count += 1
+                else:
+                    app.session_store.delete(key)
+                    count += 1
 
         return count
 

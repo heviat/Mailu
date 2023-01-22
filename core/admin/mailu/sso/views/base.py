@@ -19,7 +19,7 @@ def login():
     client_ip = flask.request.headers.get('X-Real-IP', flask.request.remote_addr)
 
     if 'code' in flask.request.args:
-        username, token_response = utils.oic_client.exchange_code(flask.request.query_string.decode())
+        username, sub, token_response = utils.oic_client.exchange_code(flask.request.query_string.decode())
         if username is not None:
             user = models.User.get(username)
             if user is None: # It is possible that the user never logged into Mailu with his OpenID account
@@ -27,6 +27,7 @@ def login():
 
             client_ip = flask.request.headers.get('X-Real-IP', flask.request.remote_addr)
             flask.session["openid_token"] = token_response
+            flask.session["openid_sub"] = sub
             flask.session.regenerate()
             flask_login.login_user(user)
             response = redirect(app.config['WEB_ADMIN'])
@@ -89,8 +90,14 @@ def logout():
                 logout_legacy()
         return redirect(utils.oic_client.logout())
     return logout_legacy()
-    
 
+@sso.route('/backchannel-logout', methods=['POST'])
+def logout():
+    if utils.oic_client.is_enabled():
+        utils.oic_client.backchannel_logout(flask.request, flask.request.args)
+        return {'code': 200, 'message': 'Backchannel logout successful.'}, 200
+    return logout_legacy()
+    
 def logout_legacy():
     flask_login.logout_user()
     flask.session.destroy()
