@@ -52,6 +52,7 @@ DEFAULT_CONFIG = {
     'OIDC_CLIENT_ID': 'mailu',
     'OIDC_CLIENT_SECRET': 'secret',
     'OIDC_BUTTON_NAME': 'OpenID Connect',
+    'OIDC_VERIFY_SSL': True,
     # Mail settings
     'DMARC_RUA': None,
     'DMARC_RUF': None,

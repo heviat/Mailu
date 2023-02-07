@@ -580,7 +580,7 @@ class User(Base, Email):
     @is_authenticated.setter
     def is_authenticated(self, value):
         if 'openid_token' not in session:
-           self._authenticated = value
+            self._authenticated = value
 
     @classmethod
     def get_password_context(cls):

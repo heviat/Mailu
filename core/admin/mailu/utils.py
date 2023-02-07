@@ -36,13 +36,15 @@ from itsdangerous.encoding import want_bytes
 from werkzeug.datastructures import CallbackDict
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from oic.oic import Client
+from oic.oic import Client, Grant
 from oic.extension.client import Client as ExtensionClient
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
+from oic.utils.settings import OicClientSettings
 from oic import rndstr
 from oic.oauth2.message import ROPCAccessTokenRequest, AccessTokenResponse
 from oic.oic.message import AuthorizationResponse, RegistrationResponse, EndSessionRequest
 from oic.oauth2.grant import Token
+from jwkest.jws import alg2keytype
 
 
 # Login configuration
@@ -138,10 +140,18 @@ class OicClient:
 
     def init_app(self, app):
         self.app = app
-        self.client = Client(client_authn_method=CLIENT_AUTHN_METHOD)
+
+        settings = OicClientSettings()
+            
+        settings.verify_ssl = app.config['OIDC_VERIFY_SSL']
+        settings.verify_ssl = app.config['OIDC_VERIFY_SSL']
+
+        self.client = Client(client_authn_method=CLIENT_AUTHN_METHOD,settings=settings)
         self.client.provider_config(app.config['OIDC_PROVIDER_INFO_URL'])
-        self.extension_client = ExtensionClient(client_authn_method=CLIENT_AUTHN_METHOD)
+    
+        self.extension_client = ExtensionClient(client_authn_method=CLIENT_AUTHN_METHOD,settings=settings)
         self.extension_client.provider_config(app.config['OIDC_PROVIDER_INFO_URL'])
+        
         info = {"client_id": app.config['OIDC_CLIENT_ID'], "client_secret": app.config['OIDC_CLIENT_SECRET'], "redirect_uris": [ "https://" + self.app.config['HOSTNAME'] + "/sso/login" ]}
         client_reg = RegistrationResponse(**info)
         self.client.store_registration_info(client_reg)
@@ -155,7 +165,7 @@ class OicClient:
         args = {
             "client_id": self.client.client_id,
             "response_type": ["code"],
-            "scope": ["openid"],
+            "scope": "openid",
             "nonce": f_session["nonce"],
             "redirect_uri": "https://" + self.app.config['HOSTNAME'] + "/sso/login",
             "state": f_session["state"]
@@ -168,18 +178,20 @@ class OicClient:
     def exchange_code(self, query):
         aresp = self.client.parse_response(AuthorizationResponse, info=query, sformat="urlencoded")
         if not ("state" in f_session and aresp["state"] == f_session["state"]):
-            return None, None
+            return None, None, None, None
         args = {
             "code": aresp["code"]
         }
         response = self.client.do_access_token_request(state=aresp["state"],
             request_args=args,
             authn_method="client_secret_basic")
+        if "id_token" not in response or response["id_token"]["nonce"] != f_session["nonce"]:
+            return None, None, None, None
         if 'access_token' not in response or not isinstance(response, AccessTokenResponse):
-            return None, None
+            return None, None, None, None
         user_response = self.client.do_user_info_request(
             access_token=response['access_token'])
-        return user_response['email'], user_response['sub'], response
+        return user_response['email'], user_response['sub'], response["id_token_jwt"], response
 
 
     def get_token(self, username, password):
@@ -229,12 +241,13 @@ class OicClient:
             print(e)
             return None
 
-    def logout(self):
+    def logout(self, id_token):
         state = rndstr()
         f_session['state'] = state
+
         args = {
-            "id_token": "",
             "state": state,
+            "id_token_hint": id_token,
             "post_logout_redirect_uri": "https://" + app.config['HOSTNAME'] + "/sso/logout",
             "client_id": self.client.client_id
         }
