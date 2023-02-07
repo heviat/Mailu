@@ -102,7 +102,10 @@ def backchannel_logout():
 def logout_legacy():
     flask_login.logout_user()
     flask.session.destroy()
-    return redirect(flask.url_for('.login'))
+    response = flask.redirect(flask.url_for('.login'))
+    for cookie in ['roundcube_sessauth', 'roundcube_sessid', 'smsession']:
+        response.set_cookie(cookie, 'empty', expires=0)
+    return response
 
 @sso.route('/proxy', methods=['GET'])
 @sso.route('/proxy/<target>', methods=['GET'])
