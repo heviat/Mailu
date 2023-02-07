@@ -13,15 +13,6 @@ test_name=sys.argv[1]
 timeout=int(sys.argv[2])
 test_path="tests/compose/" + test_name + "/"
 compose_file=test_path + "docker-compose.yml"
-docker_private_registry = len(sys.argv) >= 6
-docker_registry=""
-docker_user=""
-docker_password=""
-if docker_private_registry:
-    docker_registry = sys.argv[3]
-    docker_user=sys.argv[4]
-    docker_password=sys.argv[5]
-
 
 client = docker.APIClient(base_url='unix://var/run/docker.sock')
 
@@ -94,12 +85,6 @@ def hooks():
             stop(1)
 
 # Start up containers
-if docker_private_registry:
-    sys.stdout.flush()
-    print(subprocess.check_output("echo " + docker_password + " | docker login " + docker_registry + " --username " + docker_user + " --password-stdin", shell=True).decode())
-    print()
-    sleep()
-    print()
 sys.stdout.flush()
 deadline=datetime.datetime.now()+datetime.timedelta(minutes=timeout)
 deadline=calendar.timegm(deadline.timetuple())
