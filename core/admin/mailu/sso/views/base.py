@@ -74,7 +74,7 @@ def login():
                 flask.flash(msg, "error")
             return response
         else:
-            utils.limiter.rate_limit_user(username, client_ip, device_cookie, device_cookie_username) if models.User.get(username) else utils.limiter.rate_limit_ip(client_ip)
+            utils.limiter.rate_limit_user(username, client_ip, device_cookie, device_cookie_username) if models.User.get(username) else utils.limiter.rate_limit_ip(client_ip, username)
             flask.current_app.logger.warn(f'Login failed for {username} from {client_ip}.')
             flask.flash('Wrong e-mail or password', 'error')
     
@@ -141,6 +141,8 @@ def proxy(target='webmail'):
     user.set_password(secrets.token_urlsafe())
     models.db.session.add(user)
     models.db.session.commit()
+    flask.session.regenerate()
+    flask_login.login_user(user)
     user.send_welcome()
     flask.current_app.logger.info(f'Login succeeded by proxy created user: {user} from {client_ip} through {flask.request.remote_addr}.')
     return flask.redirect(app.config['WEB_ADMIN'] if target=='admin' else app.config['WEB_WEBMAIL'])
