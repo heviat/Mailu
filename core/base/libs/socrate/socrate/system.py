@@ -27,7 +27,7 @@ def _coerce_value(value):
 def set_env(required_secrets=[]):
     # Fix for no required secrets, as this currently blocks Kubernetes Helm deployments
     if len(required_secrets) == 0:
-        return
+        return {}
     """ This will set all the environment variables and retains only the secrets we need """
     secret_key = os.environ.get('SECRET_KEY')
     if not secret_key:
