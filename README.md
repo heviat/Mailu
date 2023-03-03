@@ -50,6 +50,7 @@ Moreover, to enable OpenID Connect authentication, the following additional conf
 | `OIDC_CLIENT_ID`         | OpenID Connect Client ID for Mailu                                | `6779ef20e75817b79602`    |
 | `OIDC_CLIENT_SECRET`     | OpenID Connect Client Secret for Mailu                            | `3d66bbd6d0a69af62de7...` |
 | `OIDC_BUTTON_NAME`       | Display text for the "login-with-OpenID" button                   | `OpenID Connect`          |
+| `OIDC_VERIFY_SSL `       | Disable TLS certificate verification for the OIDC client          | `True` \| `False`         |
 
 Here is a snippet for easy copy paste:
 
@@ -68,6 +69,7 @@ OIDC_CLIENT_ID=<CLIENT_ID>
 OIDC_CLIENT_SECRET=<CLIENT_SECRET>
 # Display text for OpenID Connect login button. Default: OpenID Connect
 OIDC_BUTTON_NAME=OpenID Connect
+OIDC_VERIFY_SSL=True
 ```
 
 After that, the installation process should be working as expected.
