@@ -41,11 +41,11 @@ def format_for_nginx(fullchain, output):
     with open(output, 'w') as pem:
         pem.write(''.join(certs))
 
-if args['TLS_FLAVOR'] in ['letsencrypt', 'mail-letsencrypt']:
+if args.get('TLS_FLAVOR', 'cert') in ['letsencrypt', 'mail-letsencrypt']:
     format_for_nginx('/certs/letsencrypt/live/mailu/fullchain.pem', '/certs/letsencrypt/live/mailu/nginx-chain.pem')
     format_for_nginx('/certs/letsencrypt/live/mailu-ecdsa/fullchain.pem', '/certs/letsencrypt/live/mailu-ecdsa/nginx-chain.pem')
 
-if args["TLS"] and not all(os.path.exists(file_path) for file_path in args["TLS"]):
+if "TLS" in args and not all(os.path.exists(file_path) for file_path in args["TLS"]):
     print("Missing cert or key file, disabling TLS")
     args["TLS_ERROR"] = "yes"
 
