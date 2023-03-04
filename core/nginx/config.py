@@ -27,7 +27,7 @@ args["TLS"] = {
     "mail-letsencrypt": ("/certs/letsencrypt/live/mailu/nginx-chain.pem",
         "/certs/letsencrypt/live/mailu/privkey.pem", "/certs/letsencrypt/live/mailu-ecdsa/nginx-chain.pem", "/certs/letsencrypt/live/mailu-ecdsa/privkey.pem"),
     "notls": None
-}[args.get("TLS_FLAVOR", "cert")]
+}[args["TLS_FLAVOR"]]
 
 def format_for_nginx(fullchain, output):
     """ We may want to strip ISRG Root X1 out """
