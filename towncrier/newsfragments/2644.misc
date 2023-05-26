@@ -1,1 +1,2 @@
-Implement de-dupplication on rate limits. Now only attempts for distinct usernames will count as a hit.
+Filter unwanted logs out.
+Disable hardened-malloc if we detect a processor not supporting the AVX extension set

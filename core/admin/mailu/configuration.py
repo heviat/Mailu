@@ -27,10 +27,11 @@ DEFAULT_CONFIG = {
     'DB_NAME': 'mailu',
     'SQLITE_DATABASE_FILE': 'data/main.db',
     'SQLALCHEMY_DATABASE_URI': 'sqlite:////data/main.db',
+    'SQLALCHEMY_DATABASE_URI_ROUNDCUBE': 'sqlite:////data/roundcube.db',
     'SQLALCHEMY_TRACK_MODIFICATIONS': False,
     # Statistics management
     'INSTANCE_ID_PATH': '/data/instance',
-    'STATS_ENDPOINT': '19.{}.stats.mailu.io',
+    'STATS_ENDPOINT': '20.{}.stats.mailu.io',
     # Common configuration variables
     'SECRET_KEY': 'changeMe',
     'DOMAIN': 'mailu.io',
@@ -43,7 +44,7 @@ DEFAULT_CONFIG = {
     'AUTH_RATELIMIT_IP': '5/hour',
     'AUTH_RATELIMIT_IP_V4_MASK': 24,
     'AUTH_RATELIMIT_IP_V6_MASK': 48,
-    'AUTH_RATELIMIT_USER': '100/day',
+    'AUTH_RATELIMIT_USER': '50/day',
     'AUTH_RATELIMIT_EXEMPTION': '',
     'AUTH_RATELIMIT_EXEMPTION_LENGTH': 86400,
     'DISABLE_STATISTICS': False,
@@ -93,6 +94,7 @@ DEFAULT_CONFIG = {
     'PROXY_AUTH_WHITELIST': '',
     'PROXY_AUTH_HEADER': 'X-Auth-Email',
     'PROXY_AUTH_CREATE': False,
+    'PROXY_AUTH_LOGOUT_URL': None,
     'SUBNET': '192.168.203.0/24',
     'SUBNET6': None,
 }

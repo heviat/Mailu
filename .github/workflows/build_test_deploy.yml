@@ -1,11 +1,23 @@
+###############################################
+# REQUIRED secrets
+# ${{ secrets.Docker_Login }}
+#    Username of docker login for logging in docker for pulling images (higher pull rate limit)
+# ${{ secrets.Docker_Password }}
+#    Password of docker login for logging in docker for pulling images (higher pull rate limit)
+# ${{ secrets.Docker_Login2 }}
+#    Second Username of docker login for logging in docker for pulling images (higher pull rate limit)
+# ${{ secrets.Docker_Password2 }}
+#    Second Password of docker login for logging in docker for pulling images (higher pull rate limit)
+################################################
+
 name: build-test-deploy
 on:
   workflow_call:
     inputs:
       architecture:
-        description: 'The architecture of the images that will be build.'
+        description: 'The architecture(s) of the images that will be build. linux/amd64 or linux/arm64/v8,linux/arm/v7 or linux/amd64,linux/arm64/v8,linux/arm/v7'
         required: false
-        default: 'linux/amd64'
+        default: 'linux/amd64,linux/arm64/v8,linux/arm/v7'
         type: string
       mailu_version:
         description: 'The main version that is build. E.g. master or x.y.'
@@ -16,7 +28,7 @@ on:
         required: true
         type: string
       docker_org:
-        description: 'The docker organisation where the images are pushed to.'
+        description: 'The docker organisation where the images are pushed to. E.g. ghcr.io/mailu'
         required: true
         type: string
       docker_registry:
@@ -28,7 +40,7 @@ on:
         required: true
         type: string
       deploy:
-        description: Deploy to docker registry. Happens for all branches but staging. Use string true or false.
+        description: Deploy to container registry. Happens for all branches but staging. Use string true or false.
         default: true
         required: false
         type: string
@@ -41,9 +53,9 @@ on:
   workflow_dispatch:
     inputs:
       architecture:
-        description: 'The architecture of the images that will be build.'
+        description: 'The architecture(s) of the images that will be build. linux/amd64 or linux/arm64/v8,linux/arm/v7 or linux/amd64,linux/arm64/v8,linux/arm/v7'
         required: false
-        default: 'linux/amd64'
+        default: 'linux/amd64,linux/arm64/v8,linux/arm/v7'
         type: string
       mailu_version:
         description: 'The main version that is build. E.g. master or x.y.'
@@ -54,7 +66,7 @@ on:
         required: true
         type: string
       docker_org:
-        description: 'The docker organisation where the images are pushed to.'
+        description: 'The docker organisation where the images are pushed to. E.g. ghcr.io/mailu'
         required: true
         type: string
       docker_registry:
@@ -66,7 +78,7 @@ on:
         required: true
         type: string
       deploy:
-        description: Deploy to docker registry. Happens for all branches but staging
+        description: Deploy to container registry. Happens for all branches but staging. Use string true or false.
         default: true
         required: false
         type: string
@@ -76,7 +88,7 @@ on:
         required: false
         type: string
 env:
-  HCL_FILE: ./tests/build.hcl
+  HCL_FILE: ./tests/build-ci.hcl
 
 jobs:
 # This job calculates what images must be build. It reads the build.hcl file and then outputs all targets (images) in it.
@@ -97,12 +109,14 @@ jobs:
         run: |
           echo ${{ steps.targets.outputs.matrix }}
 
-## This job builds the base image. The base image is used by all other images.
-  build-base-image-x64:
-    name: Build base image x64
-    if: inputs.architecture == 'linux/amd64'
-    needs:
-      - targets
+# This job builds the base and assets images. The build cache is stored in the ghcr.io registry.
+  build-base-assets-x64:
+    name: x64 - build intermediate
+    if: contains(inputs.architecture, 'linux/amd64')
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ["base", "assets"]
     runs-on: ubuntu-latest
     permissions:
      contents: read
@@ -121,44 +135,63 @@ jobs:
       - uses: crazy-max/ghaction-github-runtime@v2
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.Docker_Login }}
-          password: ${{ secrets.Docker_Password }}
       - name: Helper to convert docker org to lowercase
         id: string
         uses: ASzc/change-string-case-action@v5
         with:
           string: ${{ github.repository_owner }}
-      - name: Build all docker images
+      - name: Get uuid
+        id: uuid
+        run: |
+            echo uuid=$RANDOM >> $GITHUB_OUTPUT
+      - name: Build docker image with retry
         env:
           DOCKER_ORG: ghcr.io/${{ steps.string.outputs.lowercase }}
-          MAILU_VERSION: ${{ env.MAILU_VERSION }}
-          PINNED_MAILU_VERSION: ${{ env.PINNED_MAILU_VERSION }}
-        uses: docker/bake-action@v2
+          MAILU_VERSION: ${{ env.MAILU_VERSION }}-build
+          PINNED_MAILU_VERSION: ${{ env.PINNED_MAILU_VERSION }}-build
+          LABEL_VERSION: ${{ env.MAILU_VERSION }}
+          PINNED_LABEL_VERSION: ${{ env.PINNED_MAILU_VERSION }}
+          ARCH: 'linux/amd64'
+          BUILDER: ${{ steps.uuid.outputs.uuid }}
+          DOCKER_LOGIN: ${{ secrets.Docker_Login }}
+          DOCKER_PASSW: ${{ secrets.Docker_Password }}
+          BUILDX_NO_DEFAULT_ATTESTATIONS: 1
+        uses: nick-fields/retry@v2
         with:
-          files: ${{env.HCL_FILE}}
-          targets: base
-          load: false
-          push: false
-          set: |
-            *.cache-from=type=registry,ref=ghcr.io/${{ steps.string.outputs.lowercase }}/base:${{ hashFiles('core/base/Dockerfile','core/base/requirements-prod.txt') }}
-            *.cache-to=type=registry,ref=ghcr.io/${{ steps.string.outputs.lowercase }}/base:${{ hashFiles('core/base/Dockerfile','core/base/requirements-prod.txt') }},mode=max
-            *.platform=${{ inputs.architecture }}
+          timeout_minutes: 20
+          retry_wait_seconds: 30
+          max_attempts: 3
+          shell: bash
+          command: |
+            set -euxo pipefail \
+              ; /usr/bin/docker info \
+              ; echo "${{ github.token }}" |        docker login --username "${{ github.repository_owner }}" --password-stdin ghcr.io \
+              ; echo "$DOCKER_PASSW" |   docker login --username "$DOCKER_LOGIN" --password-stdin \
+              ; /usr/bin/docker buildx rm builder-${{ env.BUILDER }} \
+              || echo "builder does not exist" \
+              ; /usr/bin/docker buildx create --name builder-${{ env.BUILDER }} --driver docker-container --use \
+              ; /usr/bin/docker buildx bake --push \
+              --file ./tests/build-ci.hcl \
+              --set *.cache-from=type=registry,ref=ghcr.io/${{ steps.string.outputs.lowercase }}/${{ matrix.target }}:buildcache \
+              --set *.cache-to=type=registry,ref=ghcr.io/${{ steps.string.outputs.lowercase }}/${{ matrix.target }}:buildcache,mode=max \
+              --set *.platform=${{ env.ARCH }} ${{ matrix.target }} \
+              ; /usr/bin/docker buildx rm builder-${{ env.BUILDER }}
+      - name: cleanup docker buildx instance after failure of build step
+        if: ${{ failure() }}
+        shell: bash
+        env:
+          BUILDER: ${{ steps.uuid.outputs.uuid }}
+        run: |
+          /usr/bin/docker buildx rm builder-${{ env.BUILDER }}
 
-## This job builds the base image. The base image is used by all other images.
-  build-base-image-arm:
-    name: Build base image arm
-    if: inputs.architecture != 'linux/amd64'
-    needs:
-      - targets
+# This job builds the base and assets images. The build cache is stored in the ghcr.io registry.
+  build-base-assets-arm:
+    name: ARM - build intermediate
+    if: contains(inputs.architecture, 'linux/arm64/v8,linux/arm/v7')
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ["base", "assets"]
     runs-on: self-hosted
     permissions:
      contents: read
@@ -175,48 +208,63 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
       - uses: crazy-max/ghaction-github-runtime@v2
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.Docker_Login }}
-          password: ${{ secrets.Docker_Password }}
       - name: Helper to convert docker org to lowercase
         id: string
         uses: ASzc/change-string-case-action@v5
         with:
           string: ${{ github.repository_owner }}
-      - name: Build all docker images
+      #This is to prevent to shared runners from generating the same uuid
+      - name: Get unique random number
+        id: uuid
+        run: |
+            echo uuid=$RANDOM >> $GITHUB_OUTPUT
+      - name: Build docker image with retry
         env:
           DOCKER_ORG: ghcr.io/${{ steps.string.outputs.lowercase }}
-          MAILU_VERSION: ${{ env.MAILU_VERSION }}
-          PINNED_MAILU_VERSION: ${{ env.PINNED_MAILU_VERSION }}
-        uses: docker/bake-action@v2
+          MAILU_VERSION: ${{ env.MAILU_VERSION }}-build-arm
+          PINNED_MAILU_VERSION: ${{ env.PINNED_MAILU_VERSION }}-build-arm
+          LABEL_VERSION: ${{ env.MAILU_VERSION }}
+          PINNED_LABEL_VERSION: ${{ env.PINNED_MAILU_VERSION }}
+          ARCH: linux/arm64/v8,linux/arm/v7
+          BUILDER: ${{ steps.uuid.outputs.uuid }}
+          DOCKER_LOGIN2: ${{ secrets.Docker_Login2 }}
+          DOCKER_PASSW2: ${{ secrets.Docker_Password2 }}
+          BUILDX_NO_DEFAULT_ATTESTATIONS: 1
+        uses: nick-fields/retry@v2
         with:
-          files: ${{env.HCL_FILE}}
-          targets: base
-          load: false
-          push: false
-          set: |
-            *.cache-from=type=registry,ref=ghcr.io/${{ steps.string.outputs.lowercase }}/base:${{ hashFiles('core/base/Dockerfile','core/base/requirements-prod.txt') }}-arm
-            *.cache-to=type=registry,ref=ghcr.io/${{ steps.string.outputs.lowercase }}/base:${{ hashFiles('core/base/Dockerfile','core/base/requirements-prod.txt') }}-arm,mode=max
-            *.platform=${{ inputs.architecture }}
+          timeout_minutes: 30
+          retry_wait_seconds: 30
+          max_attempts: 10
+          shell: bash
+          command: |
+            set -euxo pipefail \
+              ; /usr/bin/docker info \
+              ; echo "${{ github.token }}" |        docker login --username "${{ github.repository_owner }}" --password-stdin ghcr.io \
+              ; echo "$DOCKER_PASSW2" |    docker login --username "$DOCKER_LOGIN2" --password-stdin \
+              ; /usr/bin/docker buildx rm builder-${{ env.BUILDER }} \
+              || echo "builder does not exist" \
+              ; /usr/bin/docker buildx create --name builder-${{ env.BUILDER }} --driver docker-container --use \
+              ; /usr/bin/docker buildx bake --push \
+              --file ./tests/build-ci.hcl \
+              --set *.cache-from=type=registry,ref=ghcr.io/${{ steps.string.outputs.lowercase }}/${{ matrix.target }}:buildcache-arm \
+              --set *.cache-to=type=registry,ref=ghcr.io/${{ steps.string.outputs.lowercase }}/${{ matrix.target }}:buildcache-arm,mode=max \
+              --set *.platform=${{ env.ARCH }} ${{ matrix.target }} \
+              ; /usr/bin/docker buildx rm builder-${{ env.BUILDER }}
+      - name: cleanup docker buildx instance after failure of build step
+        if: ${{ failure() }}
+        shell: bash
+        env:
+          BUILDER: ${{ steps.uuid.outputs.uuid }}
+        run: |
+          /usr/bin/docker buildx rm builder-${{ env.BUILDER }}
 
-# This job builds all the images. The build cache is stored in the github actions cache.
-# In further jobs, this cache is used to quickly rebuild the images.
+# This job builds the main images. The build cache is stored in the ghcr.io registry.
   build:
-    name: Build images for linux/amd64
-    if: inputs.architecture == 'linux/amd64'
+    name: x64 - build
+    if: contains(inputs.architecture, 'linux/amd64')
     needs:
       - targets
-      - build-base-image-x64
+      - build-base-assets-x64
     strategy:
       fail-fast: false
       matrix:
@@ -239,47 +287,62 @@ jobs:
       - uses: crazy-max/ghaction-github-runtime@v2
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.Docker_Login }}
-          password: ${{ secrets.Docker_Password }}
       - name: Helper to convert docker org to lowercase
         id: string
         uses: ASzc/change-string-case-action@v5
         with:
           string: ${{ github.repository_owner }}
-      - name: Build all docker images
+      - name: Get uuid
+        id: uuid
+        run: |
+            echo uuid=$RANDOM >> $GITHUB_OUTPUT
+      - name: Build docker image with retry
         env:
           DOCKER_ORG: ghcr.io/${{ steps.string.outputs.lowercase }}
-          MAILU_VERSION: ${{ env.MAILU_VERSION }}
-          PINNED_MAILU_VERSION: ${{ env.PINNED_MAILU_VERSION }}
-        uses: docker/bake-action@v2
+          MAILU_VERSION: ${{ env.MAILU_VERSION }}-build
+          PINNED_MAILU_VERSION: ${{ env.PINNED_MAILU_VERSION }}-build
+          LABEL_VERSION: ${{ env.MAILU_VERSION }}
+          PINNED_LABEL_VERSION: ${{ env.PINNED_MAILU_VERSION }}
+          ARCH: 'linux/amd64'
+          BUILDER: ${{ steps.uuid.outputs.uuid }}
+          DOCKER_LOGIN: ${{ secrets.Docker_Login }}
+          DOCKER_PASSW: ${{ secrets.Docker_Password }}
+          BUILDX_NO_DEFAULT_ATTESTATIONS: 1
+        uses: nick-fields/retry@v2
         with:
-          files: ${{env.HCL_FILE}}
-          targets: ${{ matrix.target }}
-          load: false
-          push: true
-          set: |
-            *.cache-from=type=registry,ref=ghcr.io/${{ steps.string.outputs.lowercase }}/${{ matrix.target }}:buildcache
-            *.cache-to=type=registry,ref=ghcr.io/${{ steps.string.outputs.lowercase }}/${{ matrix.target }}:buildcache,mode=max
-            *.cache-from=type=registry,ref=ghcr.io/${{ steps.string.outputs.lowercase }}/base:${{ hashFiles('core/base/Dockerfile','core/base/requirements-prod.txt') }}
-            *.platform=${{ inputs.architecture }}
+          timeout_minutes: 20
+          retry_wait_seconds: 30
+          max_attempts: 3
+          shell: bash
+          command: |
+            set -euxo pipefail \
+              ; /usr/bin/docker info \
+              ; echo "${{ github.token }}" |        docker login --username "${{ github.repository_owner }}" --password-stdin ghcr.io \
+              ; echo "$DOCKER_PASSW" |   docker login --username "$DOCKER_LOGIN" --password-stdin \
+              ; /usr/bin/docker buildx rm builder-${{ env.BUILDER }} \
+              || echo "builder does not exist" \
+              ; /usr/bin/docker buildx create --name builder-${{ env.BUILDER }} --driver docker-container --use \
+              ; /usr/bin/docker buildx bake --push \
+              --file ./tests/build-ci.hcl \
+              --set *.cache-from=type=registry,ref=ghcr.io/${{ steps.string.outputs.lowercase }}/${{ matrix.target }}:buildcache \
+              --set *.cache-to=type=registry,ref=ghcr.io/${{ steps.string.outputs.lowercase }}/${{ matrix.target }}:buildcache,mode=max \
+              --set *.platform=${{ env.ARCH }} ${{ matrix.target }} \
+              ; /usr/bin/docker buildx rm builder-${{ env.BUILDER }}
+      - name: cleanup docker buildx instance after failure of build step
+        if: ${{ failure() }}
+        shell: bash
+        env:
+          BUILDER: ${{ steps.uuid.outputs.uuid }}
+        run: |
+          /usr/bin/docker buildx rm builder-${{ env.BUILDER }}
 
-# This job builds all the images. The build cache is stored in the github actions cache.
-# In further jobs, this cache is used to quickly rebuild the images.
+# This job builds the main images. The build cache is stored in the ghcr.io registry.
   build-arm:
-    name: Build images for ARM64 & ARM/V7
-    if: inputs.architecture != 'linux/amd64'
+    name: ARM - build
+    if: contains(inputs.architecture, 'linux/arm64/v8,linux/arm/v7')
     needs:
       - targets
-      - build-base-image-arm
+      - build-base-assets-arm
     strategy:
       fail-fast: false
       matrix:
@@ -300,45 +363,60 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
       - uses: crazy-max/ghaction-github-runtime@v2
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.Docker_Login }}
-          password: ${{ secrets.Docker_Password }}
       - name: Helper to convert docker org to lowercase
         id: string
         uses: ASzc/change-string-case-action@v5
         with:
           string: ${{ github.repository_owner }}
-      - name: Build all docker images
+      #This is to prevent to shared runners from generating the same uuid
+      - name: Get unique random number
+        id: uuid
+        run: |
+            echo uuid=$RANDOM >> $GITHUB_OUTPUT
+      - name: Build docker image with retry
         env:
           DOCKER_ORG: ghcr.io/${{ steps.string.outputs.lowercase }}
-          MAILU_VERSION: ${{ env.MAILU_VERSION }}
-          PINNED_MAILU_VERSION: ${{ env.PINNED_MAILU_VERSION }}
-        uses: docker/bake-action@v2
+          MAILU_VERSION: ${{ env.MAILU_VERSION }}-build-arm
+          PINNED_MAILU_VERSION: ${{ env.PINNED_MAILU_VERSION }}-build-arm
+          LABEL_VERSION: ${{ env.MAILU_VERSION }}
+          PINNED_LABEL_VERSION: ${{ env.PINNED_MAILU_VERSION }}
+          ARCH: linux/arm64/v8,linux/arm/v7
+          BUILDER: ${{ steps.uuid.outputs.uuid }}
+          DOCKER_LOGIN2: ${{ secrets.Docker_Login2 }}
+          DOCKER_PASSW2: ${{ secrets.Docker_Password2 }}
+          BUILDX_NO_DEFAULT_ATTESTATIONS: 1
+        uses: nick-fields/retry@v2
         with:
-          files: ${{env.HCL_FILE}}
-          targets: ${{ matrix.target }}
-          load: false
-          push: true
-          set: |
-            *.cache-from=type=registry,ref=ghcr.io/${{ steps.string.outputs.lowercase }}/${{ matrix.target }}:buildcache-arm
-            *.cache-to=type=registry,ref=ghcr.io/${{ steps.string.outputs.lowercase }}/${{ matrix.target }}:buildcache-arm,mode=max
-            *.cache-from=type=registry,ref=ghcr.io/${{ steps.string.outputs.lowercase }}/base:${{ hashFiles('core/base/Dockerfile','core/base/requirements-prod.txt') }}-arm
-            *.platform=${{ inputs.architecture }}
+          timeout_minutes: 30
+          retry_wait_seconds: 30
+          max_attempts: 10
+          shell: bash
+          command: |
+            set -euxo pipefail \
+              ; /usr/bin/docker info \
+              ; echo "${{ github.token }}" |        docker login --username "${{ github.repository_owner }}" --password-stdin ghcr.io \
+              ; echo "$DOCKER_PASSW2" |    docker login --username "$DOCKER_LOGIN2" --password-stdin \
+              ; /usr/bin/docker buildx rm builder-${{ env.BUILDER }} \
+              || echo "builder does not exist" \
+              ; /usr/bin/docker buildx create --name builder-${{ env.BUILDER }} --driver docker-container --use \
+              ; /usr/bin/docker buildx bake --push \
+              --file ./tests/build-ci.hcl \
+              --set *.cache-from=type=registry,ref=ghcr.io/${{ steps.string.outputs.lowercase }}/${{ matrix.target }}:buildcache-arm \
+              --set *.cache-to=type=registry,ref=ghcr.io/${{ steps.string.outputs.lowercase }}/${{ matrix.target }}:buildcache-arm,mode=max \
+              --set *.platform=${{ env.ARCH }} ${{ matrix.target }} \
+              ; /usr/bin/docker buildx rm builder-${{ env.BUILDER }}
+      - name: cleanup docker buildx instance after failure of build step
+        if: ${{ failure() }}
+        shell: bash
+        env:
+          BUILDER: ${{ steps.uuid.outputs.uuid }}
+        run: |
+          /usr/bin/docker buildx rm builder-${{ env.BUILDER }}
 
 # This job runs all the tests.
   tests:
     name: tests
-    if: inputs.architecture == 'linux/amd64'
+    if: contains(inputs.architecture, 'linux/amd64')
     runs-on: ubuntu-latest
     permissions:
      contents: read
@@ -389,8 +467,8 @@ jobs:
         run: python tests/compose/test.py ${{ matrix.target }} ${{ matrix.time }}
         env:
           DOCKER_ORG: ghcr.io/${{ steps.string.outputs.lowercase }}
-          MAILU_VERSION: ${{ env.MAILU_VERSION }}
-          PINNED_MAILU_VERSION: ${{ env.PINNED_MAILU_VERSION }}
+          MAILU_VERSION: ${{ env.MAILU_VERSION }}-build
+          PINNED_MAILU_VERSION: ${{ env.PINNED_MAILU_VERSION }}-build
 
   deploy:
     name: Deploy images
@@ -398,6 +476,8 @@ jobs:
     if: inputs.deploy == 'true'
     runs-on: ubuntu-latest
     needs:
+      - build
+      - build-arm
       - tests
     strategy:
       fail-fast: false
@@ -417,17 +497,19 @@ jobs:
       - uses: crazy-max/ghaction-github-runtime@v2
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-      - name: Login to Docker Hub
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
-          username: ${{ secrets.Docker_Login }}
-          password: ${{ secrets.Docker_Password }}
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Helper to convert docker org to lowercase
         id: string
         uses: ASzc/change-string-case-action@v5
         with:
           string: ${{ github.repository_owner }}
-      - name: Push image to Docker
+      - name: Push multiarch image to Github (ghcr.io)
+        if: contains(inputs.architecture, 'linux/amd64') && contains(inputs.architecture, 'linux/arm64/v8,linux/arm/v7')
         shell: bash
         run: |
           if [ '${{ env.MAILU_VERSION }}' == 'master' ]; then pinned_mailu_version='master'; else pinned_mailu_version=${{ env.PINNED_MAILU_VERSION}}; fi;
@@ -435,51 +517,29 @@ jobs:
             --tag ${{ inputs.docker_org }}/${{ matrix.target }}:${{ env.MAILU_VERSION }} \
             --tag ${{ inputs.docker_org }}/${{ matrix.target }}:$pinned_mailu_version \
             --tag ${{ inputs.docker_org }}/${{ matrix.target }}:latest \
-            ghcr.io/${{ steps.string.outputs.lowercase }}/${{ matrix.target }}:${{ env.MAILU_VERSION }}
-  deploy-arm:
-    name: Deploy images for arm
-    # Deploying is not required for staging
-    if: inputs.deploy == 'true' && inputs.architecture != 'linux/amd64'
-    runs-on: self-hosted
-    needs:
-      - build-arm
-    strategy:
-      fail-fast: false
-      matrix:
-        target: ["setup", "docs", "fetchmail", "webmail", "admin", "traefik-certdumper", "radicale", "clamav", "rspamd", "oletools", "postfix", "dovecot", "unbound", "nginx"]
-    steps:
-      - uses: actions/checkout@v3
-      - name: Retrieve global variables
+            ghcr.io/${{ steps.string.outputs.lowercase }}/${{ matrix.target }}:${{ env.MAILU_VERSION }}-build \
+            ghcr.io/${{ steps.string.outputs.lowercase }}/${{ matrix.target }}:${{ env.MAILU_VERSION }}-build-arm
+      - name: Push x64 image to Github (ghcr.io)
+        if: contains(inputs.architecture, 'linux/amd64') && !contains(inputs.architecture, 'linux/arm64/v8,linux/arm/v7')
         shell: bash
         run: |
-          echo "BRANCH=${{ inputs.branch }}" >> $GITHUB_ENV
-          echo "MAILU_VERSION=${{ inputs.mailu_version }}" >> $GITHUB_ENV
-          echo "PINNED_MAILU_VERSION=${{ inputs.pinned_mailu_version }}" >> $GITHUB_ENV
-          echo "DOCKER_ORG=${{ inputs.docker_org }}" >> $GITHUB_ENV
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-      - uses: crazy-max/ghaction-github-runtime@v2
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.Docker_Login }}
-          password: ${{ secrets.Docker_Password }}
-      - name: Helper to convert docker org to lowercase
-        id: string
-        uses: ASzc/change-string-case-action@v5
-        with:
-          string: ${{ github.repository_owner }}
-      - name: Push image to Docker
-        shell: bash
-        run: |
-          if [ '${{ env.MAILU_VERSION }}' == 'master-arm' ]; then pinned_mailu_version='master-arm'; else pinned_mailu_version=${{ env.PINNED_MAILU_VERSION}}; fi;
+          if [ '${{ env.MAILU_VERSION }}' == 'master' ]; then pinned_mailu_version='master'; else pinned_mailu_version=${{ env.PINNED_MAILU_VERSION}}; fi;
           docker buildx imagetools create \
             --tag ${{ inputs.docker_org }}/${{ matrix.target }}:${{ env.MAILU_VERSION }} \
             --tag ${{ inputs.docker_org }}/${{ matrix.target }}:$pinned_mailu_version \
             --tag ${{ inputs.docker_org }}/${{ matrix.target }}:latest \
-            ghcr.io/${{ steps.string.outputs.lowercase }}/${{ matrix.target }}:${{ env.MAILU_VERSION }}
+            ghcr.io/${{ steps.string.outputs.lowercase }}/${{ matrix.target }}:${{ env.MAILU_VERSION }}-build
+      - name: Push arm image to Github (ghcr.io)
+        if: contains(inputs.architecture, 'linux/arm64/v8,linux/arm/v7') && !contains(inputs.architecture, 'linux/amd64')
+        shell: bash
+        run: |
+          if [ '${{ env.MAILU_VERSION }}' == 'master' ]; then pinned_mailu_version='master'; else pinned_mailu_version=${{ env.PINNED_MAILU_VERSION}}; fi;
+          docker buildx imagetools create \
+            --tag ${{ inputs.docker_org }}/${{ matrix.target }}:${{ env.MAILU_VERSION }} \
+            --tag ${{ inputs.docker_org }}/${{ matrix.target }}:$pinned_mailu_version \
+            --tag ${{ inputs.docker_org }}/${{ matrix.target }}:latest \
+            ghcr.io/${{ steps.string.outputs.lowercase }}/${{ matrix.target }}:${{ env.MAILU_VERSION }}-build-arm
+
 #This job creates a tagged release. A tag is created for the pinned version x.y.z. The GH release refers to this tag.
   tag-release:
     if: inputs.release == 'true'
@@ -491,22 +551,62 @@ jobs:
         with:
           # fetch-depth 0 is required to also retrieve all tags.
           fetch-depth: 0
+        # A bug in actions/checkout@v3 results in all files having mtime of the job running.
+      - name: Restore Timestamps
+        uses: chetan/git-restore-mtime-action@v1
       - name: Retrieve global variables
         shell: bash
         run: |
-          echo "BRANCH=${{ inputs.branch }}" >> $GITHUB_ENV
           echo "MAILU_VERSION=${{ inputs.mailu_version }}" >> $GITHUB_ENV
           echo "PINNED_MAILU_VERSION=${{ inputs.pinned_mailu_version }}" >> $GITHUB_ENV
-          echo "DOCKER_ORG=${{ inputs.docker_org }}" >> $GITHUB_ENV
       - name: Create tag for branch x.y.
         shell: bash
         run: |
           echo git tag ${{ env.PINNED_MAILU_VERSION }} $(/usr/bin/git rev-parse HEAD)
           git tag ${{ env.PINNED_MAILU_VERSION }} $(/usr/bin/git rev-parse HEAD)
           git push origin ${{ env.PINNED_MAILU_VERSION }}
+      - name: Show list of changelog files (we pick the newest)
+        shell: bash
+        run: |
+          ls -Artl towncrier/newsfragments
+      - name: Get latest changelog
+        id: changelog
+        shell: bash
+        run: |
+            delimiter="$RANDOM"
+            pushd . && cd towncrier/newsfragments && ls -Art | tail -n 1 | cut -d. -f1 | xargs -0I % echo "issue=%" >> $GITHUB_OUTPUT && popd
+            echo "content<<${delimiter}" >> "${GITHUB_OUTPUT}"
+            pushd . && cd towncrier/newsfragments && ls -Art | tail -n 1 | xargs cat | xargs -0I % echo "%" >> "${GITHUB_OUTPUT}" && popd
+            echo "${delimiter}" >> "${GITHUB_OUTPUT}"
+      - name: Construct message for release
+        shell: bash
+        env:
+          issue: "${{ steps.changelog.outputs.issue }}"
+          changelog: "${{ steps.changelog.outputs.content }}"
+        run: |
+            EOT=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+            cat << "${EOT}" >> release_note.md
+            Changelog :mailbox:
+            ---------
+            + ${{ env.changelog }}
+
+            + This release was triggered by PR/Issue [${{ env.issue }}](https://github.com/Mailu/Mailu/issues/${{ env.issue }}).
+
+            + The release notes of the original main release can be accessed via menu item 'Release notes' on [mailu.io](https://mailu.io/).
+
+            Update
+            ------
+            The main version X.Y (e.g. 1.9) will always reflect the latest version of the branch. To update your Mailu installation simply pull the latest images \`docker compose pull && docker compose up -d\`.
+
+            The pinned version X.Y.Z (e.g. 1.9.1) is not updated. It is pinned to the commit that was used for creating this release. You can use a pinned version to make sure your Mailu installation is not suddenly updated when recreating containers. The pinned version allows the user to manually update. It also allows to go back to a previous pinned version.
+            ${EOT}
+      - name: Show release note
+        shell: bash
+        run: |
+            cat release_note.md
       - name: Create release for tag x.y.z.
         uses: ncipollo/release-action@v1
         with:
-          bodyFile: "RELEASE_TEMPLATE.md"
+          bodyFile: "release_note.md"
           tag: ${{ env.PINNED_MAILU_VERSION }}
           token: ${{ secrets.GITHUB_TOKEN }}

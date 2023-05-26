@@ -13,7 +13,8 @@ $config['log_driver'] = 'stdout';
 $config['zipdownload_selection'] = true;
 $config['enable_spellcheck'] = true;
 $config['spellcheck_engine'] = 'pspell';
-$config['session_lifetime'] = {{ SESSION_TIMEOUT_MINUTES | int }};
+$config['spellcheck_languages'] = array('en'=>'English (US)', 'uk'=>'English (UK)', 'de'=>'Deutsch', 'fr'=>'French', 'ru'=>'Russian');
+$config['session_lifetime'] = {{ (((PERMANENT_SESSION_LIFETIME | default(10800)) | int)/3600) | int }};
 $config['request_path'] = '{{ WEB_WEBMAIL or "none" }}';
 $config['trusted_host_patterns'] = [ {{ HOSTNAMES.split(",") | map("tojson") | join(',') }}];
 
@@ -24,7 +25,14 @@ $config['smtp_user'] = '%u';
 $config['smtp_pass'] = '%p';
 
 // Sieve script management
-$config['managesieve_host'] = '{{ FRONT_ADDRESS or "front" }}:14190';
+$config['managesieve_host'] = 'tls://{{ FRONT_ADDRESS or "front" }}:14190';
+$config['managesieve_conn_options'] = array(
+  'ssl'         => array(
+     'verify_peer'  => false,
+     'verify_peer_name' => false,
+     'allow_self_signed' => true,
+   ),
+);
 $config['managesieve_mbox_encoding'] = 'UTF8';
 
 // roundcube customization

@@ -83,8 +83,8 @@ Via the multimap filter it is possible to block emails from a sender domain. See
 
 The following steps have to be taken to configure an additional symbol (rule) that uses the multimap filter to block emails from sender domain.
 
-1. In the overrides folder create a configuration file for the multimap filter. This configuration is included by Rspamd in the main multimap configuration file. This means you do not have to use the "multimap {}" element. Files in the /mailu/overrides/rspamd/ folder are mapped to /etc/rspamd/override.d.
-   Create the file /mailu/overrides/rspamd/multimap.conf with contents:
+1. In the overrides folder create a configuration file for the multimap filter. This configuration is included by Rspamd in the main multimap configuration file. This means you do not have to use the "multimap {}" element. Files in the ``/mailu/overrides/rspamd/`` folder are mapped to ``/overrides``.
+   Create the file ``/mailu/overrides/rspamd/multimap.conf`` with contents:
 
    .. code-block:: bash
 
@@ -93,7 +93,7 @@ The following steps have to be taken to configure an additional symbol (rule) th
     local_bl_domain {
       type = "from";
       filter = "email:domain";
-      map = "/etc/rspamd/override.d/blacklist.inc";
+      map = "/overrides/blacklist.inc";
       score = 14;
       description = "Senders domain part is on the local blacklist";
       group = "local_bl";
@@ -125,12 +125,11 @@ The following steps have to be taken to configure an additional symbol (rule) th
      #This file is LIVE reloaded by rspamd. Any changes are EFFECTIVE IMMEDIATELY.
      dummy.com
 
-3. Reload Rspamd by stopping the Rspamd container and starting the Rspamd container again. Example for docker-compose setup:
+3. Reload Rspamd by stopping the Rspamd container and starting the Rspamd container again. Example for docker compose setup:
 
    .. code-block:: bash
 
-     docker-compose scale antispam=0
-     docker-compose scale antispam=1
+     docker compose up antispam --force-recreate -d
 
 4. (Optional) Check if the custom symbol is loaded. To access the Rspamd webgui, log in the Mailu administration web interface with a user that is an administrator and go to Antispam. In Rspamd webgui go to tab Symbols. Change the group drop-down box to local_bl. The following additional rule will be listed.
 
@@ -163,8 +162,8 @@ Mailu rejects emails with file attachements it deems to be "executable" or other
 
    .. code-block:: bash
 
-     docker-compose exec antispam cat /etc/rspamd/local.d/forbidden_file_extension.map > overrides/rspamd/forbidden_file_extension.map
-     docker-compose restart antispam
+     docker compose exec antispam cat /etc/rspamd/local.d/forbidden_file_extension.map > overrides/rspamd/forbidden_file_extension.map
+     docker compose restart antispam
 
 Now the file `overrides/rspamd/forbidden_file_extension.map` can be edited, to make changes to the forbidden file extensions list.
 For the changes to take effect, rspamd must be restarted.
@@ -176,8 +175,8 @@ If configured to do so, Mailu uses a lightweight tool called `mraptor from oleto
 
    .. code-block:: bash
 
-     docker-compose exec antispam cat /etc/rspamd/local.d/composites.conf > overrides/rspamd/composites.conf
-     docker-compose restart antispam
+     docker compose exec antispam cat /etc/rspamd/local.d/composites.conf > overrides/rspamd/composites.conf
+     docker compose restart antispam
 
 Now the file `overrides/rspamd/composites.conf` can be edited, to override the mraptor configuration in rspamd.
 For the changes to take effect, rspamd must be restarted.

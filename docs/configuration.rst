@@ -47,10 +47,11 @@ accounts for a specific IP subnet as defined in
 ``AUTH_RATELIMIT_IP_V4_MASK`` (default: /24) and
 ``AUTH_RATELIMIT_IP_V6_MASK`` (default: /48).
 
-The ``AUTH_RATELIMIT_USER`` (default: 100/day) holds a security setting for fighting
+The ``AUTH_RATELIMIT_USER`` (default: 50/day) holds a security setting for fighting
 attackers that attempt to guess a user's password (typically using a password
-bruteforce attack). The value defines the limit of authentication attempts allowed
-for any given account within a specific timeframe.
+bruteforce attack). The value defines the limit of distinct authentication attempts
+allowed for any given account within a specific timeframe. Multiple attempts for the
+same account with the same password only counts for one.
 
 The ``AUTH_RATELIMIT_EXEMPTION_LENGTH`` (default: 86400) is the number of seconds
 after a successful login for which a specific IP address is exempted from rate limits.
@@ -240,6 +241,10 @@ but slows down the performance of modern devices.
 
 The ``TLS_PERMISSIVE`` (default: true) setting controls whether ciphers and protocols offered on port 25 for STARTTLS are optimized for maximum compatibility. We **strongly recommend** that you do **not** change this setting on the basis that any encryption beats no encryption. If you are subject to compliance requirements and are not afraid of losing emails as a result of artificially reducing compatibility, set it to 'false'. Keep in mind that servers that are running a software stack old enough to not be compatible with the current TLS requirements will either a) deliver in plaintext b) bounce emails c) silently drop emails; moreover, modern servers will benefit from various downgrade protections (DOWNGRD, RFC7507) making the security argument mostly a moot point.
 
+The ``COMPRESSION`` (default: unset) setting controls whether emails are stored compressed at rest on disk. Valid values are ``gz``, ``bz2`` or ``zstd`` and additional settings can be configured via ``COMPRESSION_LEVEL``, see `zlib_save_level`_ for accepted values. If the underlying filesystem supports compression natively you should use it instead of this setting as it will be more efficient and will improve compatibility with 3rd party tools.
+
+.. _`zlib_save_level`: https://doc.dovecot.org/settings/plugin/zlib-plugin/#plugin_setting-zlib-zlib_save_level
+
 .. _reverse_proxy_headers:
 
 The ``REAL_IP_HEADER`` (default: unset) and ``REAL_IP_FROM`` (default: unset) settings
@@ -247,11 +252,29 @@ controls whether HTTP headers such as ``X-Forwarded-For`` or ``X-Real-IP`` shoul
 The former should be the name of the HTTP header to extract the client IP address from and the
 later a comma separated list of IP addresses designating which proxies to trust.
 If you are using Mailu behind a reverse proxy, you should set both. Setting the former without
-the later introduces a security vulnerability allowing a potential attacker to spoof his source address.
+the latter introduces a security vulnerability allowing a potential attacker to spoof their source address.
 
 The ``TZ`` sets the timezone Mailu will use. The timezone naming convention usually uses a ``Region/City`` format. See `TZ database name`_  for a list of valid timezones This defaults to ``Etc/UTC``. Warning: if you are observing different timestamps in your log files you should change your hosts timezone to UTC instead of changing TZ to your local timezone. Using UTC allows easy log correlation with remote MTAs.
 
 .. _`TZ database name`: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+
+The ``PROXY_PROTOCOL`` (default: unset) allows the the front container to receive TCP and HTTP connections with
+the `PROXY protocol`_ (originally introduced in HAProxy, now also configurable in other proxy servers).
+It can be set to:
+
+* ``http`` to accept the ``PROXY`` protocol on nginx's HTTP proxy ports
+* ``mail`` to accept the ``PROXY`` protocol on nginx's mail proxy ports
+* ``all`` to accept the ``PROXY`` protocol on all nginx's HTTP and mail proxy ports
+
+.. _`PROXY protocol`: https://github.com/haproxy/haproxy/blob/master/doc/proxy-protocol.txt
+
+This requires to have a valid ``REAL_IP_FROM`` (default: unset). Setting ``PROXY_PROTOCOL`` without setting
+``REAL_IP_FROM`` *will not work*. The ``REAL_IP_HEADER`` **must be unset**. Otherwise Mailu will not accept
+the IP address from the remote client specified by the proxy. This results in the proxy being rate limited
+or even banned (when fail2ban is used).
+Make sure to set a ``REAL_IP_FROM`` only pointing to IP addresses or networks
+that you trust; accepting the ``PROXY`` protocol from untrusted sources is a serious security vulnerability,
+allowing a potential attacker to spoof their source address.
 
 Antivirus settings
 ------------------
@@ -285,26 +308,22 @@ These are used for DNS based service discovery with possibly changing services I
 Database settings
 -----------------
 
+Both the admin and roundcube services store their configurations in a SQLite database.
+Alternatives hosted options like PostgreSQL and MariaDB/MySQL can be configured using `DB URL`_
+but the development team recommends against it. Indeed, there is currently very little data
+to be stored and SQLite is deemed both sufficient, simpler and more reliable overall.
 
-The admin service stores configurations in a database.
+- ``SQLALCHEMY_DATABASE_URI`` (default: sqlite:////data/main.db): the SQLAlchemy database URL for accessing the database
+- ``SQLALCHEMY_DATABASE_URI_ROUNDCUBE`` (default: sqlite:////data/roundcube.db): the Roundcube database URL for accessing the Roundcube database
 
-- ``DB_FLAVOR``: the database type for mailu admin service. (``sqlite``, ``postgresql``, ``mysql``)
-- ``DB_HOST``: the database host for mailu admin service. For non-default ports use the notation `host:port`. (when not ``sqlite``)
-- ``DB_PW``: the database password for mailu admin service. (when not ``sqlite``)
-- ``DB_USER``: the database user for mailu admin service. (when not ``sqlite``)
-- ``DB_NAME``: the database name for mailu admin service. (when not ``sqlite``)
+For PostgreSQL use driver postgresql (``SQLALCHEMY_DATABASE_URI=postgresql://mailu:mailu_secret_password@database/mailu``).
 
-Alternatively, if you need more control, you can use a `DB URL`_ : do not set any of the ``DB_`` settings and set ``SQLALCHEMY_DATABASE_URI`` instead.
+For MariaDB/MySQL use driver mysql+mysqlconnector (``SQLALCHEMY_DATABASE_URI= mysql+mysqlconnector://mailu:mailu_secret_password@database/mailu```).
+
+For Roundcube, refer to the `roundcube documentation`_ for the URL specification.
 
 .. _`DB URL`: https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls
-
-The roundcube service stores configurations in a database.
-
-- ``ROUNDCUBE_DB_FLAVOR``: the database type for roundcube service. (``sqlite``, ``postgresql``, ``mysql``)
-- ``ROUNDCUBE_DB_HOST``: the database host for roundcube service. For non-default ports use the notation `host:port`. (when not ``sqlite``)
-- ``ROUNDCUBE_DB_PW``: the database password for roundcube service. (when not ``sqlite``)
-- ``ROUNDCUBE_DB_USER``: the database user for roundcube service. (when not ``sqlite``)
-- ``ROUNDCUBE_DB_NAME``: the database name for roundcube service. (when not ``sqlite``)
+.. _`roundcube documentation`: https://github.com/roundcube/roundcubemail/blob/master/config/defaults.inc.php#L28
 
 Webmail settings
 ----------------
@@ -367,6 +386,7 @@ When ``POSTFIX_LOG_FILE`` is enabled, the logrotate program will automatically r
 logs every week and keep 52 logs. To override the logrotate configuration, create the file logrotate.conf
 with the desired configuration in the :ref:`Postfix overrides folder<override-label>`.
 
+.. _header_authentication:
 
 Header authentication using an external proxy
 ---------------------------------------------
@@ -375,6 +395,15 @@ The ``PROXY_AUTH_WHITELIST`` (default: unset/disabled) option allows you to conf
 
 Use ``PROXY_AUTH_HEADER`` (default: 'X-Auth-Email') to customize which HTTP header the email address of the user to authenticate as should be and ``PROXY_AUTH_CREATE`` (default: False) to control whether non-existing accounts should be auto-created. Please note that Mailu doesn't currently support creating new users for non-existing domains; you do need to create all the domains that may be used manually.
 
-Once configured, any request to /sso/proxy will be redirected to the webmail and /sso/proxy/admin to the admin panel. Please check issue `1972` for more details.
+Once configured, any request to /sso/login with the correct headers will be authenticated unless the "noproxyauth" parameter is passed, in which case the "standard" login form will be displayed. Please check issues `1972`_ and `2692`_ for more details.
+
+Requests to:
+
+- "/sso/login" results the user being redirected to the web administration interface after authentication.
+- "/admin" (``WEB_ADMIN=/admin``) results the user being redirected to the web administration interface  after authentication.
+- "/webmail" (``WEB_WEBMAIL=/webmail``) results the user being redirected to the web administration interface  after authentication.
+
+Use ``PROXY_AUTH_LOGOUT_URL`` (default: unset) to redirect users to a specific URL after they have been logged out.
 
 .. _`1972`: https://github.com/Mailu/Mailu/issues/1972
+.. _`2692`: https://github.com/Mailu/Mailu/issues/2692

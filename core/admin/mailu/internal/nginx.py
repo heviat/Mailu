@@ -14,7 +14,8 @@ STATUSES = {
     "authentication": ("Authentication credentials invalid", {
         "imap": "AUTHENTICATIONFAILED",
         "smtp": "535 5.7.8",
-        "pop3": "-ERR Authentication failed"
+        "pop3": "-ERR Authentication failed",
+        "sieve": "AuthFailed"
     }),
     "encryption": ("Must issue a STARTTLS command first", {
         "smtp": "530 5.7.0"
@@ -26,7 +27,7 @@ STATUSES = {
     }),
 }
 
-WEBMAIL_PORTS = ['10143', '10025']
+WEBMAIL_PORTS = ['14190', '10143', '10025']
 
 def check_credentials(user, password, ip, protocol=None, auth_port=None):
     if not user or not user.enabled or (protocol == "imap" and not user.enable_imap and not auth_port in WEBMAIL_PORTS) or (protocol == "pop3" and not user.enable_pop):
@@ -36,8 +37,7 @@ def check_credentials(user, password, ip, protocol=None, auth_port=None):
     if auth_port in WEBMAIL_PORTS and password.startswith('token-'):
         if utils.verify_temp_token(user.get_id(), password):
             is_ok = True
-    # All tokens are 32 characters hex lowercase
-    if not is_ok and len(password) == 32:
+    if not is_ok and utils.is_app_token(password):
         for token in user.tokens:
             if (token.check_password(password) and
                 (not token.ip or token.ip == ip)):
@@ -51,8 +51,8 @@ def handle_authentication(headers):
     """ Handle an HTTP nginx authentication request
     See: http://nginx.org/en/docs/mail/ngx_mail_auth_http_module.html#protocol
     """
-    method = headers["Auth-Method"]
-    protocol = headers["Auth-Protocol"]
+    method = headers["Auth-Method"].lower()
+    protocol = headers["Auth-Protocol"].lower()
     # Incoming mail, no authentication
     if method == "none" and protocol == "smtp":
         server, port = get_server(protocol, False)
@@ -86,6 +86,7 @@ def handle_authentication(headers):
         raw_user_email = urllib.parse.unquote(headers["Auth-User"])
         raw_password = urllib.parse.unquote(headers["Auth-Pass"])
         user_email = 'invalid'
+        password = 'invalid'
         try:
             user_email = raw_user_email.encode("iso8859-1").decode("utf8")
             password = raw_password.encode("iso8859-1").decode("utf8")
@@ -108,6 +109,7 @@ def handle_authentication(headers):
                         "Auth-Server": server,
                         "Auth-User": user_email,
                         "Auth-User-Exists": is_valid_user,
+                        "Auth-Password": password,
                         "Auth-Port": port
                     }
         app.logger.warn('STEP 3')
@@ -117,10 +119,11 @@ def handle_authentication(headers):
             "Auth-Error-Code": code,
             "Auth-User": user_email,
             "Auth-User-Exists": is_valid_user,
+            "Auth-Password": password,
             "Auth-Wait": 0
         }
     # Unexpected
-    return {}
+    raise Exception("SHOULD NOT HAPPEN")
 
 
 def get_status(protocol, status):
@@ -139,6 +142,8 @@ def get_server(protocol, authenticated=False):
             hostname, port = app.config['SMTP_ADDRESS'], 10025
         else:
             hostname, port = app.config['SMTP_ADDRESS'], 25
+    elif protocol == "sieve":
+        hostname, port = app.config['IMAP_ADDRESS'], 4190
     try:
         # test if hostname is already resolved to an ip address
         ipaddress.ip_address(hostname)

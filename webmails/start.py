@@ -11,7 +11,6 @@ from socrate import conf, system
 
 env = os.environ
 
-logging.basicConfig(stream=sys.stderr, level=env.get("LOG_LEVEL", "WARNING"))
 system.set_env(['ROUNDCUBE','SNUFFLEUPAGUS'])
 
 # jinja context
@@ -26,7 +25,8 @@ with open("/etc/resolv.conf") as handle:
     resolver = content[content.index("nameserver") + 1]
     context["RESOLVER"] = f"[{resolver}]" if ":" in resolver else resolver
 
-db_flavor = env.get("ROUNDCUBE_DB_FLAVOR", "sqlite")
+db_uri = env.get("SQLALCHEMY_DATABASE_URI_ROUNDCUBE", "sqlite:////data/roundcube.db")
+db_flavor = env.get("ROUNDCUBE_DB_FLAVOR")
 if db_flavor == "sqlite":
     context["DB_DSNW"] = "sqlite:////data/roundcube.db"
 elif db_flavor == "mysql":
@@ -43,6 +43,8 @@ elif db_flavor == "postgresql":
         env.get("ROUNDCUBE_DB_HOST", "database"),
         env.get("ROUNDCUBE_DB_NAME", "roundcube")
     )
+elif db_uri:
+    context["DB_DSNW"] = db_uri
 else:
     print(f"Unknown ROUNDCUBE_DB_FLAVOR: {db_flavor}", file=sys.stderr)
     exit(1)
@@ -61,9 +63,6 @@ context["PLUGINS"] = ",".join(f"'{p}'" for p in plugins)
 
 # add overrides
 context["INCLUDES"] = sorted(inc for inc in os.listdir("/overrides") if inc.endswith((".inc", ".inc.php"))) if os.path.isdir("/overrides") else []
-
-# calculate variables for config file
-context["SESSION_TIMEOUT_MINUTES"] = max(int(env.get("SESSION_TIMEOUT", "3600")) // 60, 1)
 
 # create config files
 conf.jinja("/conf/config.inc.php", context, "/var/www/roundcube/config/config.inc.php")

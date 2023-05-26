@@ -1,8 +1,10 @@
 Changing the database back-end
 ==============================
 
-By default Mailu uses a SQLite database. We have changed the internals of Mailu
-to enable the support of alternative database solutions such as PostgreSQL and MySQL/MariaDB.
+By default Mailu uses a SQLite database. It is possible to use an alternative database solutions such as PostgreSQL and MySQL/MariaDB.
+
+The Mailu database contains static data. SQLite is sufficient for any deployment scenario of Mailu. There is no need to use a different database system.
+The Mailu development team recommends to use SQLite.
 
 
 Migrating to a different database back-end
@@ -15,11 +17,11 @@ This means it is not possible to switch the database back-end used by roundcube 
 
 To switch to a different database back-end:
 
-1. Run config-export to export the configuration. E.g.  `docker-compose exec admin flask mailu config-export --secrets --output mail-config.yml`
+1. Run config-export to export the configuration. E.g.  `docker compose exec admin flask mailu config-export --secrets --output mail-config.yml`
 2. Set up your new database server. Refer to the subsequent sections for tips for creating the database.
-3. Modify the database settings (DB_*) in mailu.env. Refer to the :ref:`configuration guide (link) <db_settings>` for the exact settings.
+3. Modify the database settings (SQLAlchemy database URL) in mailu.env. Refer to the :ref:`configuration guide (link) <db_settings>` for the exact settings.
 4. Start your Mailu deployment.
-5. Run config-import to import the configuration. E.g. `docker exec -i $(docker-compose ps -q admin) flask mailu config-import -v < mail-config.yml`
+5. Run config-import to import the configuration. E.g. `docker exec -i $(docker compose ps -q admin) flask mailu config-import -v < mail-config.yml`
 
 Mailu has now been switched to the new database back-end. The Mailu configuration has also been migrated.
 
@@ -80,7 +82,7 @@ In ``pg_hba.conf`` there should be a line like this:
 
   host    mailu           mailu           <mailu_host>/32            md5
 
-Note that this example is the bare-minimum to get Mailu working. Additional work needs to be 
+Note that this example is the bare-minimum to get Mailu working. Additional work needs to be
 done by the database admin to setup their own means of backups and TLS encrypted connections.
 
 Nowadays it is recommended to use the official PostgreSQL image from the PostgreSQL community. The repository is located `here <https://hub.docker.com/_/postgres>`_.
@@ -91,10 +93,10 @@ Mailu PostgreSQL
 ----------------
 
 Mailu optionally came with a pre-configured PostgreSQL image which was deprecated in Mailu 1.8.
-Since Mailu 1.9 it is removed from Mailu. The following section describes how to move to a different 
+Since Mailu 1.9 it is removed from Mailu. The following section describes how to move to a different
 PostgreSQL image for novice administrators. The official PostgreSQL image (Postgres) will be used.
 
-A Mailu deployment with the Mailu PostgreSQL image, will only use PostgreSQL for the Admin container 
+A Mailu deployment with the Mailu PostgreSQL image, will only use PostgreSQL for the Admin container
 (Web administration interface). Roundcube uses SQLite as database back-end.
 Mailu uses the following configuration for connecting to the database:
 
@@ -114,22 +116,22 @@ Prepare the environment. Mailu must not be in use. Only the database container.
 
 1. Open a terminal.
 2. `cd /mailu`
-3. `docker-compose -p mailu down`
-4. `docker-compose -p mailu up -d database`
+3. `docker compose -p mailu down`
+4. `docker compose -p mailu up -d database`
 
 Create the dump SQL file for recreating the database.
 
-1. `docker-compose -p mailu exec database /bin/bash`
+1. `docker compose -p mailu exec database /bin/bash`
 2. `pg_dump -h database -p 5432 -U mailu > /backup/backup_db.sql`
 3. Enter the password. See the value of DB_PW in mailu.env.
 4. `exit`
 5. The dump is saved to /mailu/data/psql_backup/backup_db.sql.
-6. `docker-compose -p mailu down`
+6. `docker compose -p mailu down`
 
 Prepare the new PostgreSQL deployment.
 
 1. `mkdir -p /mailu/data/external_psql/pgdata`
-2. Create the file docker-compose-postgresql.yml with the following contents:
+2. Create the file docker compose-postgresql.yml with the following contents:
 
 .. code-block:: docker
 
@@ -147,12 +149,12 @@ Prepare the new PostgreSQL deployment.
          - "/mailu/data/psql_backup:/dump"
 
 
-3. `docker-compose -f docker-compose-postgresql.yml up -d`
-4. `docker-compose -f docker-compose-postgresql.yml exec database /bin/bash`
+3. `docker compose -f docker compose-postgresql.yml up -d`
+4. `docker compose -f docker compose-postgresql.yml exec database /bin/bash`
 5. `cat /dump/backup_db.sql | psql -h localhost -p 5432 -U mailu`
 6. `exit`
-7. `docker-compose -f docker-compose-postgresql.yml down`
-8. Remove the file docker-compose-postgresql.yml.
+7. `docker compose -f docker compose-postgresql.yml down`
+8. Remove the file docker compose-postgresql.yml.
 
 The new PostgreSQL deployment has the dump loaded now. Now it is time to modify Mailu to use the official PostgreSQL docker image.
 
@@ -192,14 +194,11 @@ to
 
 .. code-block:: docker
 
-   DB_HOST=database
-   DB_PORT=5432
-   DB_USER=mailu
-   DB_NAME=mailu
+   SQLALCHEMY_DATABASE_URI=postgresql://mailu:mailu@database/mailu
 
 Mailu is now configured to use the official PostgreSQL docker image. Bring your new deployment online
 
-1. `docker-compose -p mailu up -d`
+1. `docker compose -p mailu up -d`
 
 Optionally you can remove left-over files which were used by the old database:
 

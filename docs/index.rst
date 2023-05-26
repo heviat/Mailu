@@ -26,9 +26,9 @@ Main features include:
 - **Standard email server**, IMAP and IMAP+, SMTP and Submission with autoconfiguration profiles for clients
 - **Advanced email features**, aliases, domain aliases, custom routing
 - **Web access**, multiple Webmails and administration interface
-- **User features**, aliases, auto-reply, auto-forward, fetched accounts
+- **User features**, aliases, auto-reply, auto-forward, fetched accounts, managesieve
 - **Admin features**, global admins, announcements, per-domain delegation, quotas
-- **Security**, enforced TLS, DANE, MTA-STS, Letsencrypt!, outgoing DKIM, anti-virus scanner, [Snuffleupagus](https://github.com/jvoisin/snuffleupagus/), block malicious attachments
+- **Security**, enforced TLS, DANE, MTA-STS, Letsencrypt!, outgoing DKIM, anti-virus scanner, `Snuffleupagus <https://github.com/jvoisin/snuffleupagus/>`_, block malicious attachments
 - **Antispam**, auto-learn, greylisting, DMARC and SPF, anti-spoofing
 - **Freedom**, all FOSS components, no tracker included
 
@@ -60,7 +60,6 @@ the version of Mailu that you are running.
     dns
     reverse
     database
-    arm_images
 
 .. toctree::
     :maxdepth: 2

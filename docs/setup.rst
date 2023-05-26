@@ -17,16 +17,10 @@ long-term professional support, you should probably turn to them instead.
 Prepare the environment
 -----------------------
 
-Mailu images are designed to work on x86 or equivalent hardware, so it
+Mailu ships multi-arch images which are designed to work on linux/amd64,
+linux/arm64v8 or linux/armv7 hardware, so it
 should run on pretty much any cloud server as long as enough power is
-provided. For non x86 machines, see :ref:`arm_images`
-
-You are free to choose any operating system that runs Docker (>= 1.11),
-then chose between various flavors including Docker Compose, Kubernetes
-and Rancher.
-
-Compose is the most tested flavor and should be the choice for less experienced
-users. Make sure you complete the requirements for the flavor you chose.
+provided.
 
 You should also have at least a DNS hostname and a DNS name for receiving
 emails. Some instructions are provided on the matter in the article
@@ -38,7 +32,7 @@ Pick a Mailu version
 
 Mailu is shipped in multiple versions.
 
-- ``1.9`` features the most recent stable version for Mailu. This is the
+- ``2.0`` features the most recent stable version for Mailu. This is the
   recommended build for new setups, old setups should migrate when possible.
 
 - ``1.0``, ``1.1``, and other version branches feature old versions of Mailu
@@ -67,7 +61,7 @@ Make sure that you test properly before going live!
 - Try to send an email to an external service
 - On the external service, verify that DKIM and SPF are listed as passing
 - Try to receive an email from an external service
-- Check the logs (``docker-compose logs -f servicenamehere``) to look for
+- Check the logs (``docker compose logs -f servicenamehere``) to look for
   warnings or errors
 - Use an open relay checker like `mxtoolbox`_
   to ensure you're not contributing to the spam problem on the internet.
