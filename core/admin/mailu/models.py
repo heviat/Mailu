@@ -611,17 +611,7 @@ class User(Base, Email):
         if password == '':
             return False
         
-        if utils.oic_client.is_enabled():
-            if 'openid_token' not in session:
-                try:
-                    openid_token = utils.oic_client.get_token(self.email, password)
-                    if openid_token is None:
-                        return self.check_password_legacy(password)
-                    session['openid_token'] = openid_token
-                except: 
-                    return self.check_password_legacy(password)
-                else:
-                    return True
+        if utils.oic_client.is_enabled() and 'openid_token' in session:
             return self.is_authenticated()
         else:
             return self.check_password_legacy(password)
