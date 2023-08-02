@@ -96,13 +96,13 @@ def login():
 @sso.route('/logout', methods=['GET'])
 @access.authenticated
 def logout():
-    if utils.oic_client.is_enabled():
-        if 'openid_token' not in flask.session:
-            return logout_legacy()
-        if 'state' in flask.request.args and 'state' in flask.session:
-            if flask.request.args.get('state') == flask.session['state']:
-                return logout_legacy()
-        return redirect(utils.oic_client.logout(flask.session['openid_id_token']))
+    #if utils.oic_client.is_enabled():
+    #    if 'openid_token' not in flask.session:
+    #        return logout_legacy()
+    #    if 'state' in flask.request.args and 'state' in flask.session:
+    #        if flask.request.args.get('state') == flask.session['state']:
+    #            return logout_legacy()
+    #    return redirect(utils.oic_client.logout(flask.session['openid_id_token']))
     return logout_legacy()
 
 @sso.route('/backchannel-logout', methods=['POST'])
