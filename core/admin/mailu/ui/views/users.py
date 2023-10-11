@@ -24,9 +24,12 @@ def user_create(domain_name):
             flask.url_for('.user_list', domain_name=domain.name))
     form = forms.UserForm()
     form.pw.validators = [wtforms.validators.DataRequired()]
+    form.quota_bytes.default = app.config['DEFAULT_QUOTA']
     if domain.max_quota_bytes:
         form.quota_bytes.validators = [
             wtforms.validators.NumberRange(max=domain.max_quota_bytes)]
+        if form.quota_bytes.default > domain.max_quota_bytes:
+            form.quota_bytes.default = domain.max_quota_bytes
     if form.validate_on_submit():
         if msg := utils.isBadOrPwned(form):
             flask.flash(msg, "error")
@@ -44,6 +47,7 @@ def user_create(domain_name):
             flask.flash('User %s created' % user)
             return flask.redirect(
                 flask.url_for('.user_list', domain_name=domain.name))
+    form.process()
     return flask.render_template('user/create.html',
         domain=domain, form=form)
 
@@ -71,7 +75,7 @@ def user_edit(user_email):
                     domain=user.domain, max_quota_bytes=max_quota_bytes)
         form.populate_obj(user)
         if form.pw.data:
-            user.set_password(form.pw.data)
+            user.set_password(form.pw.data, keep_sessions=set(flask.session))
         models.db.session.commit()
         flask.flash('User %s updated' % user)
         return flask.redirect(
@@ -110,7 +114,7 @@ def _process_password_change(form, user_email):
                 flask.flash(msg, "error")
                 return flask.render_template('user/password.html', form=form, user=user)
             flask.session.regenerate()
-            user.set_password(form.pw.data)
+            user.set_password(form.pw.data, keep_sessions=set(flask.session))
             models.db.session.commit()
             flask.flash('Password updated for %s' % user)
             if user_email:
@@ -177,6 +181,7 @@ def user_signup(domain_name=None):
             flask.session.regenerate()
             user = models.User(domain=domain)
             form.populate_obj(user)
+            user.change_pw_next_login = True
             user.set_password(form.pw.data)
             user.quota_bytes = quota_bytes
             models.db.session.add(user)

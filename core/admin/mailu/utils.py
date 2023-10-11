@@ -100,6 +100,16 @@ def is_exempt_from_ratelimits(ip):
     ip = ipaddress.ip_address(ip)
     return any(ip in cidr for cidr in app.config['AUTH_RATELIMIT_EXEMPTION'])
 
+def is_ip_in_subnet(ip, subnets=[]):
+    if isinstance(subnets, str):
+        subnets = [subnets]
+    ip = ipaddress.ip_address(ip)
+    try:
+        return any(ip in cidr for cidr in [ipaddress.ip_network(subnet, strict=False) for subnet in subnets])
+    except:
+        app.logger.debug(f'Unable to parse {subnets!r}, assuming {ip!r} is not in the set')
+        return False
+
 # Application translation
 babel = flask_babel.Babel()
 
@@ -678,6 +688,8 @@ def isBadOrPwned(form):
     return None
 
 def formatCSVField(field):
+    if not field.data:
+        return
     if isinstance(field.data,str):
         data = field.data.replace(" ","").split(",")
     else:
@@ -689,3 +701,6 @@ def is_app_token(candidate):
     if len(candidate) == 32 and all(c in string.hexdigits[:-6] for c in candidate):
         return True
     return False
+
+def truncated_pw_hash(pw):
+    return hmac.new(app.truncated_pw_key, bytearray(pw, 'utf-8'), 'sha256').hexdigest()[:6]

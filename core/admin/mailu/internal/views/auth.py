@@ -6,6 +6,7 @@ import flask
 import flask_login
 import base64
 import sqlalchemy.exc
+import urllib
 
 @internal.route("/auth/email")
 def nginx_authentication():
@@ -27,9 +28,8 @@ def nginx_authentication():
         response = flask.Response()
         response.headers['Auth-Status'] = status
         response.headers['Auth-Error-Code'] = code
-        if int(flask.request.headers['Auth-Login-Attempt']) < 10:
-            response.headers['Auth-Wait'] = '3'
         return response
+    raw_password = urllib.parse.unquote(headers['Auth-Pass']) if 'Auth-Pass' in headers else ''
     headers = nginx.handle_authentication(flask.request.headers)
     response = flask.Response()
     for key, value in headers.items():
@@ -43,8 +43,6 @@ def nginx_authentication():
             response = flask.Response()
             response.headers['Auth-Status'] = status
             response.headers['Auth-Error-Code'] = code
-            if int(flask.request.headers['Auth-Login-Attempt']) < 10:
-                response.headers['Auth-Wait'] = '3'
             return response
         is_valid_user = True
     if headers.get("Auth-Status") == "OK":
@@ -52,7 +50,14 @@ def nginx_authentication():
         if not is_port_25:
             utils.limiter.exempt_ip_from_ratelimits(client_ip)
     elif is_valid_user:
-        utils.limiter.rate_limit_user(username, client_ip, password=response.headers.get('Auth-Password', None))
+        password = None
+        try:
+            password = raw_password.encode("iso8859-1").decode("utf8")
+        except:
+            app.logger.warn(f'Received undecodable password for {username} from nginx: {raw_password!r}')
+            utils.limiter.rate_limit_user(username, client_ip, password=None)
+        else:
+            utils.limiter.rate_limit_user(username, client_ip, password=password)
     elif not is_from_webmail:
         utils.limiter.rate_limit_ip(client_ip, username)
     return response
@@ -107,7 +112,7 @@ def basic_authentication():
             exc = str(exc).split('\n', 1)[0]
             app.logger.warn(f'Invalid user {user_email!r}: {exc}')
         else:
-            if user is not None and nginx.check_credentials(user, password.decode('utf-8'), client_ip, "web"):
+            if user is not None and nginx.check_credentials(user, password.decode('utf-8'), client_ip, "web", flask.request.headers.get('X-Real-Port', None), user_email):
                 response = flask.Response()
                 response.headers["X-User"] = models.IdnaEmail.process_bind_param(flask_login, user.email, "")
                 utils.limiter.exempt_ip_from_ratelimits(client_ip)
