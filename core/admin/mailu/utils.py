@@ -176,7 +176,7 @@ class OicClient:
         args = {
             "client_id": self.client.client_id,
             "response_type": ["code"],
-            "scope": "openid",
+            "scope": ["openid", "email"],
             "nonce": f_session["nonce"],
             "redirect_uri": "https://" + self.app.config['HOSTNAME'] + "/sso/login",
             "state": f_session["state"]
