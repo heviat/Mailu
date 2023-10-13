@@ -58,7 +58,7 @@ def login():
         if str(app.config["ADMIN"]).upper() != "FALSE":
             fields.append(form.submitAdmin)
     fields = [fields]
-
+    
     if form.validate_on_submit():
         if destination := _has_usable_redirect():
             pass
@@ -69,6 +69,7 @@ def login():
                 destination = app.config['WEB_WEBMAIL']
         device_cookie, device_cookie_username = utils.limiter.parse_device_cookie(flask.request.cookies.get('rate_limit'))
         username = form.email.data
+        
         if not utils.is_app_token(form.pw.data):
             if username != device_cookie_username and utils.limiter.should_rate_limit_ip(client_ip):
                 flask.flash(_('Too many attempts from your IP (rate-limit)'), 'error')
@@ -93,6 +94,8 @@ def login():
             utils.limiter.rate_limit_user(username, client_ip, device_cookie, device_cookie_username, form.pw.data) if models.User.get(username) else utils.limiter.rate_limit_ip(client_ip, username)
             flask.current_app.logger.info(f'Login attempt for: {username}/sso/{flask.request.headers.get("X-Forwarded-Proto")} from: {client_ip}/{client_port}: failed: badauth: {utils.truncated_pw_hash(form.pw.data)}')
             flask.flash(_('Wrong e-mail or password'), 'error')
+    else:
+        flask.current_app.logger.info(f'Login attempt failed: invalid email address')
     return flask.render_template('login.html', form=form, fields=fields, openId=app.config['OIDC_ENABLED'], openIdEndpoint=utils.oic_client.get_redirect_url())
 
 @sso.route('/pw_change', methods=['GET', 'POST'])
