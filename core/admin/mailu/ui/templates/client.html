@@ -29,7 +29,7 @@
     </tr>
     <tr>
       <th>{% trans %}Password{% endtrans %}</th>
-      <td><pre class="pre-config border bg-light">*******</pre></td>
+      <td><pre class="pre-config border bg-light">{{ "USE AUTH TOKEN" if current_user.is_oidc_user else "******" }}</pre></td>
     </tr>
   </tbody>
 {%- endcall %}
@@ -54,7 +54,7 @@
     </tr>
     <tr>
       <th>{% trans %}Password{% endtrans %}</th>
-      <td><pre class="pre-config border bg-light">*******</pre></td>
+      <td><pre class="pre-config border bg-light">{{ "USE AUTH TOKEN" if current_user.is_oidc_user else "******" }}</pre></td>
     </tr>
   </tbody>
 {%- endcall %}
