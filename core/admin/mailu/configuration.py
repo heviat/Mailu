@@ -55,6 +55,8 @@ DEFAULT_CONFIG = {
     'OIDC_CLIENT_SECRET': 'secret',
     'OIDC_BUTTON_NAME': 'OpenID Connect',
     'OIDC_VERIFY_SSL': True,
+    'OIDC_CHANGE_PASSWORD_REDIRECT_ENABLED': True,
+    'OIDC_CHANGE_PASSWORD_REDIRECT_URL': None,
     # Mail settings
     'DMARC_RUA': None,
     'DMARC_RUF': None,

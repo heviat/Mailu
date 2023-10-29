@@ -690,6 +690,11 @@ set() containing the sessions to keep
         if app.config['WELCOME']:
             self.sendmail(app.config['WELCOME_SUBJECT'], app.config['WELCOME_BODY'])
 
+    @property
+    def is_oidc_user(self):
+        """ check if user is registered through OpenID Connect """
+        return self.password is None or self.password == 'openid'
+    
     @classmethod
     def get(cls, email):
         """ find user object for email address """

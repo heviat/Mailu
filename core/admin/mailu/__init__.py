@@ -79,6 +79,7 @@ def create_app_from_config(config):
         return dict(
             signup_domains= signup_domains,
             config        = app.config,
+            oic_client    = utils.oic_client,
             get_locale    = utils.get_locale,
         )
 

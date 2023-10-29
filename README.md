@@ -43,14 +43,16 @@ MAILU_VERSION=master
 
 Moreover, to enable OpenID Connect authentication, the following additional configuration properties are needed in `mailu.env`:
 
-|       Property Name      |                             Description                           |           Example         |
-| ------------------------ | ----------------------------------------------------------------- | ------------------------- |
-| `OIDC_ENABLED`           | Enable OpenID Connect                                             | `True` \| `False`         |
-| `OIDC_PROVIDER_INFO_URL` | OpenID Connect provider configuration url (aka. _well-known_ url) | [https://`host`:`port`/auth/realms/`realm`/.well-known/openid-configuration]() |
-| `OIDC_CLIENT_ID`         | OpenID Connect Client ID for Mailu                                | `6779ef20e75817b79602`    |
-| `OIDC_CLIENT_SECRET`     | OpenID Connect Client Secret for Mailu                            | `3d66bbd6d0a69af62de7...` |
-| `OIDC_BUTTON_NAME`       | Display text for the "login-with-OpenID" button                   | `OpenID Connect`          |
-| `OIDC_VERIFY_SSL `       | Disable TLS certificate verification for the OIDC client          | `True` \| `False`         |
+|             Property Name               |                                                      Description                                                    |           Example         |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| `OIDC_ENABLED`                          | Enable OpenID Connect                                                                                               | `True` \| `False`         |
+| `OIDC_PROVIDER_INFO_URL`                | OpenID Connect provider configuration url (aka. _well-known_ url)                                                   | [https://`host`:`port`/auth/realms/`realm`/.well-known/openid-configuration]() |
+| `OIDC_CLIENT_ID`                        | OpenID Connect Client ID for Mailu                                                                                  | `6779ef20e75817b79602`    |
+| `OIDC_CLIENT_SECRET`                    | OpenID Connect Client Secret for Mailu                                                                              | `3d66bbd6d0a69af62de7...` |
+| `OIDC_BUTTON_NAME`                      | Display text for the "login-with-OpenID" button                                                                     | `OpenID Connect`          |
+| `OIDC_VERIFY_SSL`                       | Disable TLS certificate verification for the OIDC client                                                            | `True` \| `False`         |
+| `OIDC_CHANGE_PASSWORD_REDIRECT_ENABLED` | If enabled, OIDC users will have an button to get redirect to their OIDC provider to change their password          | `True` \| `False`         |
+| `OIDC_CHANGE_PASSWORD_REDIRECT_URL`     | Defaults to provider issuer url appended by `/.well-known/password-change`.                                         | `https://oidc.example.com/pw-change`         |
 
 Here is a snippet for easy copy paste:
 
@@ -70,6 +72,9 @@ OIDC_CLIENT_SECRET=<CLIENT_SECRET>
 # Display text for OpenID Connect login button. Default: OpenID Connect
 OIDC_BUTTON_NAME=OpenID Connect
 OIDC_VERIFY_SSL=True
+OIDC_CHANGE_PASSWORD_REDIRECT_ENABLED=True
+OIDC_CHANGE_PASSWORD_REDIRECT_URL=https://oidc.example.com/pw-change
+
 ```
 
 After that, the installation process should be working as expected.

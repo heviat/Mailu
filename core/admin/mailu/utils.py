@@ -148,6 +148,8 @@ class OicClient:
         self.client = None
         self.extension_client = None
         self.registration_response = None
+        self.change_password_redirect_enabled = True,
+        self.change_password_url = None
 
     def init_app(self, app):
         self.app = app
@@ -155,13 +157,15 @@ class OicClient:
         settings = OicClientSettings()
             
         settings.verify_ssl = app.config['OIDC_VERIFY_SSL']
-        settings.verify_ssl = app.config['OIDC_VERIFY_SSL']
+
+        self.change_password_redirect_enabled = app.config['OIDC_CHANGE_PASSWORD_REDIRECT_ENABLED']
 
         self.client = Client(client_authn_method=CLIENT_AUTHN_METHOD,settings=settings)
         self.client.provider_config(app.config['OIDC_PROVIDER_INFO_URL'])
     
         self.extension_client = ExtensionClient(client_authn_method=CLIENT_AUTHN_METHOD,settings=settings)
         self.extension_client.provider_config(app.config['OIDC_PROVIDER_INFO_URL'])
+        self.change_password_url = app.config['OIDC_CHANGE_PASSWORD_REDIRECT_URL'] or (self.client.issuer + '/.well-known/change-password')
         
         info = {"client_id": app.config['OIDC_CLIENT_ID'], "client_secret": app.config['OIDC_CLIENT_SECRET'], "redirect_uris": [ "https://" + self.app.config['HOSTNAME'] + "/sso/login" ]}
         client_reg = RegistrationResponse(**info)
@@ -274,6 +278,9 @@ class OicClient:
 
     def is_enabled(self):
         return self.app is not None and self.app.config['OIDC_ENABLED']
+    
+    def change_password(self):
+        return self.change_password_url if self.change_password_redirect_enabled else None
 
 oic_client = OicClient()
 
