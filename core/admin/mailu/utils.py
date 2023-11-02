@@ -166,8 +166,8 @@ class OicClient:
         self.extension_client = ExtensionClient(client_authn_method=CLIENT_AUTHN_METHOD,settings=settings)
         self.extension_client.provider_config(app.config['OIDC_PROVIDER_INFO_URL'])
         self.change_password_url = app.config['OIDC_CHANGE_PASSWORD_REDIRECT_URL'] or (self.client.issuer + '/.well-known/change-password')
-        
-        info = {"client_id": app.config['OIDC_CLIENT_ID'], "client_secret": app.config['OIDC_CLIENT_SECRET'], "redirect_uris": [ "https://" + self.app.config['HOSTNAME'] + "/sso/login" ]}
+        self.redirect_url = app.config['OIDC_REDIRECT_URL'] or ("https://" + self.app.config['HOSTNAME'])
+        info = {"client_id": app.config['OIDC_CLIENT_ID'], "client_secret": app.config['OIDC_CLIENT_SECRET'], "redirect_uris": [ self.redirect_url + "/sso/login" ]}
         client_reg = RegistrationResponse(**info)
         self.client.store_registration_info(client_reg)
         self.extension_client.store_registration_info(client_reg)
@@ -182,7 +182,7 @@ class OicClient:
             "response_type": ["code"],
             "scope": ["openid", "email"],
             "nonce": f_session["nonce"],
-            "redirect_uri": "https://" + self.app.config['HOSTNAME'] + "/sso/login",
+            "redirect_uri": self.redirect_url + "/sso/login",
             "state": f_session["state"]
         }
 
@@ -263,7 +263,7 @@ class OicClient:
         args = {
             "state": state,
             "id_token_hint": id_token,
-            "post_logout_redirect_uri": "https://" + app.config['HOSTNAME'] + "/sso/logout",
+            "post_logout_redirect_uri": self.redirect_url + "/sso/logout",
             "client_id": self.client.client_id
         }
 

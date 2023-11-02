@@ -47,6 +47,7 @@ Moreover, to enable OpenID Connect authentication, the following additional conf
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------- |
 | `OIDC_ENABLED`                          | Enable OpenID Connect                                                                                               | `True` \| `False`         |
 | `OIDC_PROVIDER_INFO_URL`                | OpenID Connect provider configuration url (aka. _well-known_ url)                                                   | [https://`host`:`port`/auth/realms/`realm`/.well-known/openid-configuration]() |
+| `OIDC_REDIRECT_URL`                     | OpenID Connect custom redirect URL if HOSTNAME not matching your login url                                          | [https://`host`]()        |
 | `OIDC_CLIENT_ID`                        | OpenID Connect Client ID for Mailu                                                                                  | `6779ef20e75817b79602`    |
 | `OIDC_CLIENT_SECRET`                    | OpenID Connect Client Secret for Mailu                                                                              | `3d66bbd6d0a69af62de7...` |
 | `OIDC_BUTTON_NAME`                      | Display text for the "login-with-OpenID" button                                                                     | `OpenID Connect`          |
@@ -65,6 +66,8 @@ Here is a snippet for easy copy paste:
 OIDC_ENABLED=True
 # OpenID Connect Provider configuration URL
 OIDC_PROVIDER_INFO_URL=https://<host>:<port>/auth/realms/.well-known/openid-configuration
+# OpenID redirect URL if HOSTNAME not matching your login url
+OIDC_REDIRECT_URL=https://mail.example.com
 # OpenID Connect Client id
 OIDC_CLIENT_ID=<CLIENT_ID>
 # OpenID Connect Client secret
