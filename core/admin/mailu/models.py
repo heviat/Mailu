@@ -612,7 +612,7 @@ class User(Base, Email):
         if password == '':
             return False
         
-        if self.is_oidc_user():
+        if self.is_oidc_user:
             return False
         
         if utils.oic_client.is_enabled() and 'openid_token' in session:
