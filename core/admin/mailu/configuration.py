@@ -57,6 +57,7 @@ DEFAULT_CONFIG = {
     'OIDC_VERIFY_SSL': True,
     'OIDC_CHANGE_PASSWORD_REDIRECT_ENABLED': True,
     'OIDC_CHANGE_PASSWORD_REDIRECT_URL': None,
+    'OIDC_REDIRECT_URL': None,
     # Mail settings
     'DMARC_RUA': None,
     'DMARC_RUF': None,
