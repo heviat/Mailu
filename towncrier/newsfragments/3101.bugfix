@@ -1,0 +1,1 @@
+Long term fix against SMTP smuggling (disable bare_newline), see https://www.postfix.org/smtp-smuggling.html

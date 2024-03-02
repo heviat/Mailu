@@ -14,6 +14,7 @@ import passlib.context
 import passlib.hash
 import passlib.registry
 import time
+import logging
 import os
 import smtplib
 import idna
@@ -29,6 +30,11 @@ from sqlalchemy.orm.attributes import flag_modified
 from werkzeug.utils import cached_property
 
 from mailu import dkim, utils
+
+
+# silence AttributeError: module 'bcrypt' has no attribute '__about__'
+logging.getLogger('passlib').setLevel(logging.ERROR)
+
 
 db = flask_sqlalchemy.SQLAlchemy()
 
@@ -159,13 +165,6 @@ class Base(db.Model):
         flag_modified(self, 'updated_at')
 
 
-# Many-to-many association table for domain managers
-managers = db.Table('manager', Base.metadata,
-    db.Column('domain_name', IdnaDomain, db.ForeignKey('domain.name')),
-    db.Column('user_email', IdnaEmail, db.ForeignKey('user.email'))
-)
-
-
 class Config(Base):
     """ In-database configuration values
     """
@@ -180,6 +179,10 @@ def _save_dkim_keys(session):
         if isinstance(obj, Domain):
             obj.save_dkim_key()
 
+def _get_managers():
+    return managers
+
+
 class Domain(Base):
     """ A DNS domain that has mail addresses associated to it.
     """
@@ -187,7 +190,7 @@ class Domain(Base):
     __tablename__ = 'domain'
 
     name = db.Column(IdnaDomain, primary_key=True, nullable=False)
-    managers = db.relationship('User', secondary=managers,
+    managers = db.relationship('User', secondary=_get_managers,
         backref=db.backref('manager_of'), lazy='dynamic')
     max_users = db.Column(db.Integer, nullable=False, default=-1)
     max_aliases = db.Column(db.Integer, nullable=False, default=-1)
@@ -232,9 +235,7 @@ class Domain(Base):
         """ return DKIM record for domain """
         if self.dkim_key:
             selector = app.config['DKIM_SELECTOR']
-            txt = f'v=DKIM1; k=rsa; p={self.dkim_publickey}'
-            record = ' '.join(f'"{txt[p:p+250]}"' for p in range(0, len(txt), 250))
-            return f'{selector}._domainkey.{self.name}. 600 IN TXT {record}'
+            return f'{selector}._domainkey.{self.name}. 600 IN TXT "v=DKIM1; k=rsa; p={self.dkim_publickey}"'
 
     @cached_property
     def dns_dmarc(self):
@@ -252,7 +253,7 @@ class Domain(Base):
         """ return DMARC report record for mailu server """
         if self.dkim_key:
             domain = app.config['DOMAIN']
-            return f'{self.name}._report._dmarc.{domain}. 600 IN TXT "v=DMARC1"'
+            return f'{self.name}._report._dmarc.{domain}. 600 IN TXT "v=DMARC1;"'
 
     @cached_property
     def dns_autoconfig(self):
@@ -854,6 +855,13 @@ class Fetch(Base):
             f'<Fetch #{self.id}: {self.protocol}{"s" if self.tls else ""}:'
             f'//{self.username}@{self.host}:{self.port}>'
         )
+
+
+# Many-to-many association table for domain managers
+managers = db.Table('manager', Base.metadata,
+    db.Column('domain_name', IdnaDomain, db.ForeignKey(Domain.name)),
+    db.Column('user_email', IdnaEmail, db.ForeignKey(User.email))
+)
 
 
 class MailuConfig:
