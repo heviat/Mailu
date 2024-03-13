@@ -199,7 +199,7 @@ class OicClient:
         response = self.client.do_access_token_request(state=aresp["state"],
             request_args=args,
             authn_method="client_secret_basic")
-        print(response)
+        
         if "id_token" not in response or response["id_token"]["nonce"] != f_session["nonce"]:
             return None, None, None, None
         if 'access_token' not in response or not isinstance(response, AccessTokenResponse):
