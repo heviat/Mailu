@@ -199,13 +199,14 @@ class OicClient:
         response = self.client.do_access_token_request(state=aresp["state"],
             request_args=args,
             authn_method="client_secret_basic")
+        print(response)
         if "id_token" not in response or response["id_token"]["nonce"] != f_session["nonce"]:
             return None, None, None, None
         if 'access_token' not in response or not isinstance(response, AccessTokenResponse):
             return None, None, None, None
         user_response = self.client.do_user_info_request(
             access_token=response['access_token'])
-        return user_response['email'], user_response['sub'], response["id_token_jwt"], response
+        return user_response['email'], user_response['sub'], response["id_token"], response
 
 
     def get_token(self, username, password):
@@ -229,19 +230,10 @@ class OicClient:
             access_token=token['access_token'])
 
     def check_validity(self, token):
-        try:
-            args = {
-                "client_id": self.extension_client.client_id,
-                "client_secret": self.extension_client.client_secret,
-                "token": token['access_token'],
-                "token_type_hint": "access_token"
-            }
-            response = self.extension_client.do_token_introspection(request_args=args)
-            if ('active' in response and response['active'] == False) or 'active' not in response:
-                return self.refresh_token(token)
-        except:
+        if 'exp' in token['id_token'] and token['id_token']['exp'] > time.time():
+            return token
+        else:
             return self.refresh_token(token)
-        return token
     
     def refresh_token(self, token):
         try:
@@ -251,6 +243,8 @@ class OicClient:
             response = self.client.do_access_token_refresh(request_args=args, token=Token(token))
             if 'access_token' in response:
                 return response
+            else:
+                return None
         except Exception as e:
             print(e)
             return None
