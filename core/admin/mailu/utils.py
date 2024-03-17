@@ -42,8 +42,9 @@ from oic.extension.client import Client as ExtensionClient
 from oic.utils.authn.client import CLIENT_AUTHN_METHOD
 from oic.utils.settings import OicClientSettings
 from oic import rndstr
+from oic.exception import MessageException, NotForMe
 from oic.oauth2.message import ROPCAccessTokenRequest, AccessTokenResponse
-from oic.oic.message import AuthorizationResponse, RegistrationResponse, EndSessionRequest
+from oic.oic.message import AuthorizationResponse, RegistrationResponse, EndSessionRequest, BackChannelLogoutRequest
 from oic.oauth2.grant import Token
 from jwkest.jws import alg2keytype
 
@@ -140,7 +141,7 @@ class PrefixMiddleware(object):
 proxy = PrefixMiddleware()
 
 class OicClient:
-    "Redirects users to OpenID Provider if configured"
+    "Redirects user to OpenID Provider if configured"
 
     def __init__(self):
         self.app = None
@@ -241,7 +242,7 @@ class OicClient:
                 "refresh_token": token['refresh_token']
             }
             response = self.client.do_access_token_refresh(request_args=args, token=Token(token))
-            if 'access_token' in response:
+            if isinstance(response, AccessTokenResponse):
                 return response
             else:
                 return None
@@ -264,11 +265,24 @@ class OicClient:
         uri, body, h_args, cis = self.client.uri_and_body(EndSessionRequest, method="GET", request_args=args, cis=request)
         return uri
     
-    def backchannel_logout(self, req, args):
-        sub = self.client.backchannel_logout(req, args, self.app)
-        if sub != None and sub != '':
-            MailuSessionExtension.prune_sessions(None, None, self.app, sub)
+    def backchannel_logout(self, body):
+        req = BackChannelLogoutRequest().from_dict(body)
 
+        kwargs = {"aud": self.client.client_id, "iss": self.client.issuer, "keyjar": self.client.keyjar}
+
+        try:
+            req.verify(**kwargs)
+        except (MessageException, ValueError, NotForMe) as err:
+            self.app.logger.error(err)
+            return False
+       
+        sub = req["logout_token"]["sub"]
+
+        if sub is not None and sub != '':
+            MailuSessionExtension.prune_sessions(None, None, self.app, sub)
+        
+        return True
+        
     def is_enabled(self):
         return self.app is not None and self.app.config['OIDC_ENABLED']
     
@@ -615,12 +629,11 @@ class MailuSessionExtension:
         count = 0
         for key in app.session_store.list(prefix):
             if key not in keep and not key.startswith(b'token-'):
-                if sub != None:
-                    if sessid := app.session_store.get(key):
-                        session = MailuSession(sessid, app)
-                        if session.get('openid_sub', '') == sub:
-                            app.session_store.delete(key)
-                            count += 1
+                if sub is not None:
+                    session = MailuSession(key, app)
+                    if 'openid_sub' in session and session['openid_sub'] == sub:
+                        app.session_store.delete(key)
+                        count += 1
                 else:
                     app.session_store.delete(key)
                     count += 1

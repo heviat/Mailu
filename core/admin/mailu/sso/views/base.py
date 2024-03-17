@@ -143,7 +143,7 @@ def logout():
 @sso.route('/backchannel-logout', methods=['POST'])
 def backchannel_logout():
     if utils.oic_client.is_enabled():
-        utils.oic_client.backchannel_logout(flask.request, flask.request.args)
+        utils.oic_client.backchannel_logout(flask.request.form)
         return {'code': 200, 'message': 'Backchannel logout successful.'}, 200
     return flask.abort(404)
     
