@@ -1,3 +1,6 @@
+> [!WARNING]
+> We are currently migrating this fork to `mailu 2024.06`. Some things might be broken, such as `notls`. We are sorry for the inconveniences caused.
+
 <p align="leftr"><img src="docs/assets/logomark.png" alt="Mailu" height="200px">&nbsp;<img src="docs/assets/openid-logo.svg" alt="OpenID" height="200px"></p>
 
 
@@ -8,7 +11,8 @@ with an easily setup, easily maintained and full-featured mail server while
 not shipping proprietary software nor unrelated features often found in
 popular groupware.
 
-> **NOTE:** This fork is extended by an OpenID Connect implementation to enable user session handling (single sign-on) and authentication using OpenID standard. The fork is maintained by [Heviat](https://heviat.com), a German cloud computing company based in Potsdam. Feel free to contribute to this repository!
+> [!NOTE]
+> This fork is extended by an OpenID Connect implementation to enable user session handling (single sign-on) and authentication using OpenID standard. The fork is maintained by [Heviat](https://heviat.com), a German cloud computing company based in Potsdam. Feel free to contribute to this repository!
 
 Features
 ========
@@ -31,6 +35,9 @@ Installation
 ============
 
 The automated installation process of the Mailu Setup Utility currently does not support the OpenID Connect extension this fork brings. You can still use the [Mailu Setup Utility](https://setup.mailu.io/1.9/) as usual, but you have perform some steps manually after downloading.
+
+> [!WARNING]
+> The setup utility allows selecting features which are not yet present in this fork. An update will follow soon.
 
 Every Docker image from the organization [`mailu`](https://hub.docker.com/u/mailu) must be replaced with an image from the organization [`heviat`](https://github.com/orgs/heviat/packages) at GitHub Container Registry - e.g. [`mailu/admin`](https://hub.docker.com/r/mailu/admin) becomes [`ghcr.io/heviat/admin`](https://ghcr.io/heviat/admin). To do so, you can simply place a `.env` file in the project directory and set `DOCKER_ORG` and `MAILU_VERSION` environment variables matching our Docker images:
 
