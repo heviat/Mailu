@@ -1,5 +1,5 @@
 > [!WARNING]
-> We are currently migrating this fork to `mailu 2024.06`. Some things might be broken, such as `notls`. We are sorry for the inconveniences caused.
+> We are currently setting up [a new fork](https://github.com/heviat/Mailu-OIDC) for `mailu 2024.06` and upcoming versions. This version will continue to work with some limitations.
 
 <p align="leftr"><img src="docs/assets/logomark.png" alt="Mailu" height="200px">&nbsp;<img src="docs/assets/openid-logo.svg" alt="OpenID" height="200px"></p>
 
@@ -37,7 +37,7 @@ Installation
 The automated installation process of the Mailu Setup Utility currently does not support the OpenID Connect extension this fork brings. You can still use the [Mailu Setup Utility](https://setup.mailu.io/1.9/) as usual, but you have perform some steps manually after downloading.
 
 > [!WARNING]
-> The setup utility allows selecting features which are not yet present in this fork. An update will follow soon.
+> The setup utility allows selecting features which are not present in this fork, such as `notls`. We are sorry for the inconveniences caused.
 
 Every Docker image from the organization [`mailu`](https://hub.docker.com/u/mailu) must be replaced with an image from the organization [`heviat`](https://github.com/orgs/heviat/packages) at GitHub Container Registry - e.g. [`mailu/admin`](https://hub.docker.com/r/mailu/admin) becomes [`ghcr.io/heviat/admin`](https://ghcr.io/heviat/admin). To do so, you can simply place a `.env` file in the project directory and set `DOCKER_ORG` and `MAILU_VERSION` environment variables matching our Docker images:
 
