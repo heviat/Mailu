@@ -1,8 +1,12 @@
-> [!WARNING]
-> We are currently setting up [a new fork](https://github.com/heviat/Mailu-OIDC) for `mailu 2024.06` and upcoming versions. This version will continue to work with some limitations.
+> [!CAUTION]
+> We have moved our OIDC implementation to a new fork for `mailu 2024.06` and upcoming versions. The versions in this repository are no longer maintained or supported. If you encounter any issues with older versions, try upgrading to the latest version first.
+
+[Click here to visit the new `Mailu-OIDC` fork](https://github.com/heviat/Mailu-OIDC)
+
+<details>
+  <summary>Click here to see the original <code>README.md</code></summary>
 
 <p align="leftr"><img src="docs/assets/logomark.png" alt="Mailu" height="200px">&nbsp;<img src="docs/assets/openid-logo.svg" alt="OpenID" height="200px"></p>
-
 
 Mailu is a simple yet full-featured mail server as a set of Docker images.
 It is free software (both as in free beer and as in free speech), open to
@@ -96,3 +100,5 @@ Mailu-OpenID is free software, open to suggestions and contributions. All
 components are free software and compatible with the MIT license. All
 specific configuration files, Dockerfiles and code are placed under the
 MIT license.
+  
+</details>
